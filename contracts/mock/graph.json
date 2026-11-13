@@ -1,0 +1,15 @@
+{
+  "chapter": 1,
+  "nodes": [
+    {"id": "c1", "name": "Mara", "knows": ["f1"]},
+    {"id": "c2", "name": "Hale", "knows": ["f1", "f2"]},
+    {"id": "c3", "name": "Inspector Rao", "knows": []}
+  ],
+  "edges": [
+    {"source": "c2", "target": "c1", "fact_id": "f1", "mode": "told", "chapter": 1}
+  ],
+  "facts": [
+    {"id": "f1", "claim": "The will was changed", "chapter": 1, "quote": "He had changed the will that week."},
+    {"id": "f2", "claim": "Hale owes money", "chapter": 1, "quote": "Hale owed more than he could repay."}
+  ]
+}

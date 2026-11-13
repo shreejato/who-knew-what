@@ -1,0 +1,8 @@
+{
+  "character": {"id":"c1","name":"Mara","aliases":["Ms. Voss"]},
+  "fact": {"id":"f1","claim":"Hale was poisoned","chapter":2,"quote":"...","start":1204,"end":1260},
+  "knowledge_event": {"character_id":"c1","fact_id":"f1","chapter":3,"mode":"witnessed|told|overheard|deduced","source_character_id":"c2 or null","quote":"..."},
+  "reference": {"character_id":"c1","fact_id":"f1","chapter":2,"quote":"...","start":1500,"end":1540},
+  "event": {"id":"e1","chapter":2,"summary":"...","time_marker":"Day 3 evening or null","location":"...","participants":["c1"],"quote":"..."},
+  "contradiction": {"id":"x1","type":"premature_knowledge|presence|timeline|attribute","severity":"high|medium|low","explanation":"...","evidence":[{"chapter":2,"quote":"...","start":0,"end":0}],"suggested_fix":"..."}
+}

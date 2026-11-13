@@ -1,0 +1,13 @@
+[
+  {
+    "id": "x1",
+    "type": "premature_knowledge",
+    "severity": "high",
+    "explanation": "Rao mentions the will in chapter 2, but no one has told him yet.",
+    "evidence": [
+      {"chapter": 2, "quote": "Rao said the new will explained everything.", "start": 120, "end": 163},
+      {"chapter": 4, "quote": "Rao first learned of the will from the lawyer.", "start": 640, "end": 686}
+    ],
+    "suggested_fix": "Move the lawyer scene before chapter 2, or remove Rao's reference."
+  }
+]
