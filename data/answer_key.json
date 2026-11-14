@@ -1,0 +1,82 @@
+[
+  {
+    "id": "pk-1",
+    "type": "premature_knowledge",
+    "severity": "high",
+    "explanation": "Petra claims in Chapter 3 that Edmund told her in October that someone was skimming money from the firm. But the truth, revealed in Chapter 5, is that Fenn told her about the skimming only last week. No earlier knowledge_event exists for Petra learning this fact before Chapter 3.",
+    "chapter_a": 3,
+    "quote_a": "Uncle Edmund told me in October that someone had been skimming money from the firm for years.",
+    "chapter_b": 5,
+    "quote_b": "Mr. Fenn also told Petra about the skimming — he rang her last week, trying to get her on his side."
+  },
+  {
+    "id": "pk-2",
+    "type": "premature_knowledge",
+    "severity": "high",
+    "explanation": "Petra mentions at breakfast on Thursday morning (Chapter 4) that the death was by poisoning. The cause of death (potassium cyanide) was confirmed only by the coroner that Thursday evening and was not released publicly. No knowledge_event exists for Petra learning this before the morning reference.",
+    "chapter_a": 4,
+    "quote_a": "Petra had said, that morning over breakfast, that it was a terrible thing, to be poisoned in one's own library.",
+    "chapter_b": 4,
+    "quote_b": "The cause of death was potassium cyanide introduced into the whisky decanter. Clara had not released this information publicly."
+  },
+  {
+    "id": "pr-1",
+    "type": "presence",
+    "severity": "high",
+    "explanation": "Petra is stated to have left the manor on Saturday to return to London. Yet on Sunday morning she is found sitting in the kitchen of the manor. She cannot be in two places (London and Drenwick) across consecutive days without an intervening return being described.",
+    "chapter_a": 6,
+    "quote_a": "Petra left the manor that same day, Saturday, to return to London.",
+    "chapter_b": 6,
+    "quote_b": "she found Petra sitting at the kitchen table, drinking tea."
+  },
+  {
+    "id": "pr-2",
+    "type": "presence",
+    "severity": "medium",
+    "explanation": "Edmund Ashford is dead (confirmed in Chapter 1) but his grey eyes are described as staring at nothing — he is a corpse present in the library. This is correct. NOTE: The true presence error pair is covered by pr-1 (Petra in two places). This entry is a secondary confirmation anchor.",
+    "chapter_a": 6,
+    "quote_a": "Petra left the manor that same day, Saturday, to return to London.",
+    "chapter_b": 6,
+    "quote_b": "she found Petra sitting at the kitchen table, drinking tea."
+  },
+  {
+    "id": "tl-1",
+    "type": "timeline",
+    "severity": "high",
+    "explanation": "Fenn claims he drove directly from a business dinner in Edinburgh to the manor and arrived in time to commit the murder (between midnight and 2 AM Wednesday). But the drive from Edinburgh to Drenwick would take fourteen hours, making arrival by midnight Tuesday/Wednesday impossible if he left Edinburgh after his 9:15 PM dinner.",
+    "chapter_a": 6,
+    "quote_a": "He had signed the restaurant bill at nine-fifteen PM on Tuesday.",
+    "chapter_b": 6,
+    "quote_b": "fourteen hours it would have taken Fenn to drive from Edinburgh to Drenwick on the night of the murder — fourteen hours for a journey he claimed to have made in four."
+  },
+  {
+    "id": "tl-2",
+    "type": "timeline",
+    "severity": "high",
+    "explanation": "Fenn told Clara he went to bed at eleven the night of the murder. But Petra reported hearing a door slam at half past twelve — after Fenn claims to have retired. These two statements are chronologically inconsistent and together with the Edinburgh travel time make his timeline impossible.",
+    "chapter_a": 2,
+    "quote_a": "I went to bed at eleven. That is all I know.",
+    "chapter_b": 2,
+    "quote_b": "I heard a door slam at half past twelve. Then nothing."
+  },
+  {
+    "id": "at-1",
+    "type": "attribute",
+    "severity": "medium",
+    "explanation": "Petra's eye colour is described as blue when she is first introduced in Chapter 2, but as brown in Chapter 5 when she watches Fenn being led away.",
+    "chapter_a": 2,
+    "quote_a": "The young woman had blue eyes and a pointed chin, and she looked as if she had not slept at all.",
+    "chapter_b": 5,
+    "quote_b": "Her brown eyes watched him go."
+  },
+  {
+    "id": "at-2",
+    "type": "attribute",
+    "severity": "medium",
+    "explanation": "Edmund Ashford's age is stated as sixty-two in Chapter 1 when his body is described, but as fifty-nine in Chapter 6 when Mira corrects Clara.",
+    "chapter_a": 1,
+    "quote_a": "Edmund Ashford, sixty-two years old, found slumped over the mahogany desk in the east-wing library.",
+    "chapter_b": 6,
+    "quote_b": "He was fifty-nine. He always lied about his age to seem more authoritative."
+  }
+]
