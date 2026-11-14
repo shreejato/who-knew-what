@@ -5,3 +5,8 @@ node_modules/
 __pycache__/
 .venv/
 .next/
+.cache/
+*.sqlite
+*.sqlite3
+*.db
+
