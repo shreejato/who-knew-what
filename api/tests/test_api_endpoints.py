@@ -1,4 +1,5 @@
 import sys
+import io
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
@@ -32,6 +33,11 @@ Inspector Rao examined the lock. He found traces of silver powder.
     assert data["chapters"] == 2
     mid = data["id"]
 
+    # Status check
+    status_res = client.get(f"/manuscripts/{mid}/status")
+    assert status_res.status_code == 200
+    assert status_res.json()["analyzed"] is False
+
     # Before analysis, graph returns empty or schema-compatible structure
     graph_res = client.get(f"/manuscripts/{mid}/graph?chapter=1")
     assert graph_res.status_code == 200
@@ -41,6 +47,38 @@ Inspector Rao examined the lock. He found traces of silver powder.
     contra_res = client.get(f"/manuscripts/{mid}/contradictions")
     assert contra_res.status_code == 200
     assert isinstance(contra_res.json(), list)
+
+
+def test_upload_txt_file():
+    txt_content = b"Chapter 1. Arrival\nMara arrived by night.\nChapter 2. The Manor\nThe door was locked."
+    files = {"file": ("mystery.txt", txt_content, "text/plain")}
+    data = {"title": "Uploaded Mystery"}
+    res = client.post("/manuscripts/upload", files=files, data=data)
+    assert res.status_code == 200
+    payload = res.json()
+    assert "id" in payload
+    assert payload["title"] == "Uploaded Mystery"
+    assert payload["chapters"] == 2
+
+
+def test_upload_docx_file():
+    import docx
+    doc = docx.Document()
+    doc.add_paragraph("Chapter 1. The Cold Night")
+    doc.add_paragraph("Mara walked into the parlour.")
+    doc.add_paragraph("Chapter 2. Dawn")
+    doc.add_paragraph("The bell tolled six times.")
+    
+    stream = io.BytesIO()
+    doc.save(stream)
+    stream.seek(0)
+    
+    files = {"file": ("story.docx", stream.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+    res = client.post("/manuscripts/upload", files=files)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["title"] == "story"
+    assert payload["chapters"] == 2
 
 
 def test_graph_chapter_filtering():
@@ -106,3 +144,13 @@ def test_contradictions_endpoint_matches_contract():
     assert data[0]["severity"] == "high"
     assert "evidence" in data[0]
     assert data[0]["evidence"][0]["chapter"] == 1
+
+
+def test_extractor_metrics_endpoint():
+    res = client.get("/extractor/metrics")
+    assert res.status_code == 200
+    payload = res.json()
+    assert "gemini" in payload
+    assert "adapted" in payload
+    assert "calls" in payload["gemini"]
+    assert "logs" in payload["gemini"]

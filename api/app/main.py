@@ -1,13 +1,16 @@
 import os
+import io
 import json
 import re
 import uuid
 from pathlib import Path
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+import docx
 
 from app.models import ChapterExtraction, Contradiction
 from app.extraction.factory import get_extractor
@@ -64,14 +67,41 @@ def create_manuscript(body: ManuscriptIn):
     mid = uuid.uuid4().hex[:8]
     chapters = split_chapters(body.text)
     storage.save_manuscript(mid=mid, title=body.title, text=body.text, chapters=chapters)
-    return {"id": mid, "chapters": len(chapters)}
+    return {"id": mid, "title": body.title, "chapters": len(chapters)}
+
+
+@app.post("/manuscripts/upload")
+async def upload_manuscript(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None)
+):
+    contents = await file.read()
+    filename = file.filename or "uploaded_manuscript.txt"
+    doc_title = title or Path(filename).stem
+
+    if filename.lower().endswith(".docx"):
+        doc = docx.Document(io.BytesIO(contents))
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        full_text = "\n\n".join(paragraphs)
+    else:
+        try:
+            full_text = contents.decode("utf-8")
+        except UnicodeDecodeError:
+            full_text = contents.decode("latin-1", errors="replace")
+
+    if not full_text.strip():
+        raise HTTPException(400, "Uploaded file appears to be empty.")
+
+    mid = uuid.uuid4().hex[:8]
+    chapters = split_chapters(full_text)
+    storage.save_manuscript(mid=mid, title=doc_title, text=full_text, chapters=chapters)
+    return {"id": mid, "title": doc_title, "chapters": len(chapters)}
 
 
 @app.post("/manuscripts/{mid}/analyze")
-def analyze(mid: str):
+def analyze(mid: str, extractor_name: Optional[str] = Query(None, alias="extractor")):
     m = storage.get_manuscript(mid)
     if not m:
-        # Check mock fallback
         if mid == "mock" or mid.startswith("mock_"):
             return {"status": "done", "chapters_analyzed": 1, "contradictions_found": 1}
         raise HTTPException(404, "manuscript not found")
@@ -80,7 +110,7 @@ def analyze(mid: str):
     if not chapters:
         raise HTTPException(400, "manuscript has no chapters")
 
-    extractor = get_extractor()
+    extractor = get_extractor(extractor_name)
     running_characters: List[str] = []
     chapter_texts: dict[int, str] = {}
 
@@ -98,7 +128,6 @@ def analyze(mid: str):
         )
         storage.save_chapter_extraction(mid, ch_num, ext)
 
-        # Update running characters list for context in next chapters
         for c in ext.characters:
             if c.name not in running_characters:
                 running_characters.append(c.name)
@@ -122,14 +151,30 @@ def analyze(mid: str):
         use_llm=True,
     )
 
-    # 4. Store verified results
-    storage.set_analyzed(mid, verified_contradictions)
+    # 4. Store verified results with metadata
+    storage.set_analyzed(mid, verified_contradictions, extractor_used=extractor.name)
 
     return {
         "status": "done",
+        "extractor": extractor.name,
         "chapters_analyzed": len(chapters),
         "candidates_flagged": len(candidates),
         "contradictions_found": len(verified_contradictions),
+    }
+
+
+@app.get("/manuscripts/{mid}/status")
+def manuscript_status(mid: str):
+    m = storage.get_manuscript(mid)
+    if not m:
+        raise HTTPException(404, "manuscript not found")
+    return {
+        "id": mid,
+        "title": m.get("title", ""),
+        "analyzed": m.get("analyzed", False),
+        "extractor_used": m.get("extractor_used", os.getenv("EXTRACTOR", "gemini")),
+        "chapters": len(m.get("chapters", [])),
+        "contradictions_count": len(m.get("contradictions", [])),
     }
 
 
@@ -137,7 +182,6 @@ def analyze(mid: str):
 def graph(mid: str, chapter: int = 1):
     m = storage.get_manuscript(mid)
     if not m:
-        # Fallback to mock graph
         if (MOCK / "graph.json").exists():
             data = json.loads((MOCK / "graph.json").read_text(encoding="utf-8"))
             data["chapter"] = chapter
@@ -145,7 +189,6 @@ def graph(mid: str, chapter: int = 1):
         raise HTTPException(404, "manuscript not found")
 
     if not m.get("analyzed", False):
-        # Return empty graph or mock before analysis
         return {"chapter": chapter, "nodes": [], "edges": [], "facts": []}
 
     return storage.build_graph(mid, max_chapter=chapter)
@@ -163,3 +206,22 @@ def contradictions(mid: str):
         return []
 
     return storage.get_contradictions(mid)
+
+
+@app.get("/extractor/metrics")
+def extractor_metrics():
+    """Return logged extraction metrics for model comparison panel."""
+    gemini_ext = get_extractor("gemini")
+    adapted_ext = get_extractor("adapted")
+    return {
+        "gemini": {
+            "name": "gemini",
+            "calls": len(gemini_ext.call_logs),
+            "logs": [m.model_dump() for m in gemini_ext.call_logs],
+        },
+        "adapted": {
+            "name": "adapted",
+            "calls": len(adapted_ext.call_logs),
+            "logs": [m.model_dump() for m in adapted_ext.call_logs],
+        },
+    }

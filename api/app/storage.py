@@ -29,11 +29,12 @@ class ManuscriptStorage:
             if mid in self._manuscripts:
                 self._manuscripts[mid]["extractions"][chapter_num] = extraction
 
-    def set_analyzed(self, mid: str, contradictions: List[Contradiction]) -> None:
+    def set_analyzed(self, mid: str, contradictions: List[Contradiction], extractor_used: str = "gemini") -> None:
         with self._lock:
             if mid in self._manuscripts:
                 self._manuscripts[mid]["analyzed"] = True
                 self._manuscripts[mid]["contradictions"] = contradictions
+                self._manuscripts[mid]["extractor_used"] = extractor_used
 
     def get_all_entities(self, mid: str) -> Dict[str, Any]:
         """Aggregate all extracted entities across all chapters for this manuscript."""
