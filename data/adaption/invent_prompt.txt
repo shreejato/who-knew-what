@@ -1,0 +1,27 @@
+# Invent a Dataset — Description Prompt for Adaption Labs
+# Used in Adaption "Invent a Dataset" tool to generate synthetic fiction continuity training examples.
+# Contract reference: contracts/schema.json
+
+Generate supervised training examples for a story continuity analyst.
+
+Each example consists of:
+1. Input:
+   - A 300 to 800 word fiction chapter excerpt
+   - A list of known characters so far
+   - The chapter number
+2. Output:
+   - A structured JSON object matching the NarrativeOS contract schema containing:
+     - "characters": new characters introduced, plus aliases for known characters.
+     - "facts": story-relevant claims (secrets, crimes, relationships, objects, locations, medical causes of death, wills).
+     - "knowledge_events": when a character LEARNS a fact in this chapter, with mode ("witnessed", "told", "overheard", "deduced") and source character ID (or null).
+     - "references": when a character speaks about or acts on a fact in this chapter.
+     - "events": key narrative occurrences with optional time_marker and location when stated in the text.
+
+Strict Rules:
+- Every item ("fact", "knowledge_event", "reference", "event") MUST have a "quote" copied EXACTLY from the chapter excerpt, character-for-character, 5-25 words long.
+- Do NOT infer what is not on the page. If unsure, omit the item.
+- Do NOT invent facts or time markers not stated in the excerpt.
+- Cover varied genres: mystery, thriller, fantasy, romance, historical fiction.
+- Include scenarios with secrets, lies, withheld information, and characters learning things in different ways (e.g., told directly vs overhearing vs discovering physical evidence).
+- Include edge cases where no new facts or knowledge events occur (negative/sparse extraction examples).
+- Output must be strict, valid JSON without markdown wrapping or commentary.
