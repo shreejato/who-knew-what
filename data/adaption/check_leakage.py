@@ -24,6 +24,7 @@ ANSWER_KEY_PATH = DATA_DIR / "answer_key.json"
 TRAINING_FILES = [
     DATA_DIR / "adaption" / "training_data.jsonl",
     DATA_DIR / "adaption" / "seed_dataset.jsonl",
+    DATA_DIR / "adaption" / "adapted_dataset.jsonl",
     DATA_DIR / "adaption" / "invent_prompt.txt",
 ]
 

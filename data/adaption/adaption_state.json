@@ -1,0 +1,28 @@
+{
+  "dataset_id": "2fb3dd5b-5bc8-41d0-8f77-c5f3f472058d",
+  "dataset_name": "narrativeos-extraction-seed",
+  "file_path": "data/adaption/seed_dataset.jsonl",
+  "upload_status": "pending",
+  "estimate": {
+    "estimated_credits_consumed": 1.0,
+    "estimated_cost_usd": 1.0,
+    "estimated_minutes": 11.0,
+    "multimodal_pricing_applied": false
+  },
+  "run_id": "dataset-2fb3dd5b-5bc8-41d0-8f77-c5f3f472058d-1794767134294",
+  "credits_charged": 1.0,
+  "run_start_time": 1794767134.434747,
+  "final_status": "succeeded",
+  "evaluation": {
+    "grade_before": "A",
+    "grade_after": "A",
+    "score_before": 9.0,
+    "score_after": 9.5,
+    "percentile_after": 57.7,
+    "improvement_percent": 5.6
+  },
+  "status": "succeeded",
+  "downloaded_file": "data/adaption/adapted_dataset.jsonl",
+  "downloaded_rows": 3,
+  "file_size_bytes": 10756
+}
