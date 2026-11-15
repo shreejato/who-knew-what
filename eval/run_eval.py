@@ -3,7 +3,7 @@ eval/run_eval.py
 NarrativeOS accuracy evaluation script.
 
 Usage:
-    python run_eval.py --manuscript-id <mid> [--extractor gemini|adapted] [--api-url http://localhost:8000]
+    python run_eval.py [--extractor gemini|adapted] [--manuscript-id <mid>] [--api-url http://localhost:8000]
 
 Outputs:
     - Per-contradiction match table to stdout
@@ -18,6 +18,8 @@ import time
 import sys
 import pathlib
 import datetime
+import urllib.request
+import urllib.error
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -32,10 +34,36 @@ RESULTS_PATH = pathlib.Path(__file__).resolve().parent / "results.md"
 
 def parse_args():
     p = argparse.ArgumentParser(description="NarrativeOS eval script")
-    p.add_argument("--manuscript-id", required=True, help="Manuscript ID returned by POST /manuscripts")
+    p.add_argument("--manuscript-id", default=None, help="Manuscript ID returned by POST /manuscripts (auto-uploads test story if omitted)")
     p.add_argument("--extractor", choices=["gemini", "adapted"], default="gemini")
     p.add_argument("--api-url", default="http://localhost:8000")
     return p.parse_args()
+
+# ---------------------------------------------------------------------------
+# Auto-upload and analyze helper
+# ---------------------------------------------------------------------------
+
+def ensure_manuscript(api_url: str, extractor: str) -> str:
+    """Uploads data/test_story.txt and runs analysis for the given extractor."""
+    story_path = REPO_ROOT / "data" / "test_story.txt"
+    if not story_path.exists():
+        raise FileNotFoundError(f"Story not found: {story_path}")
+    story_text = story_path.read_text(encoding="utf-8")
+
+    print(f"[1/2] Uploading test story to {api_url}/manuscripts ...")
+    upload_payload = json.dumps({"title": "NarrativeOS Planted-Error Test Story", "text": story_text}).encode("utf-8")
+    req = urllib.request.Request(f"{api_url}/manuscripts", data=upload_payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        res = json.loads(resp.read().decode("utf-8"))
+    mid = res["id"]
+    print(f"  → Created manuscript_id={mid} ({res.get('chapters', 0)} chapters)")
+
+    print(f"[2/2] Triggering /analyze (extractor={extractor}) ...")
+    req = urllib.request.Request(f"{api_url}/manuscripts/{mid}/analyze?extractor={extractor}", method="POST")
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        analyze_res = json.loads(resp.read().decode("utf-8"))
+    print(f"  → Analysis complete: {analyze_res.get('contradictions_found', 0)} contradictions found")
+    return mid
 
 # ---------------------------------------------------------------------------
 # Fetch contradictions from the API
@@ -204,7 +232,15 @@ def append_results_md(extractor: str, overall: dict, by_type: dict,
 def main():
     args = parse_args()
 
-    print(f"\n=== NarrativeOS Eval | extractor={args.extractor} | manuscript={args.manuscript_id} ===\n")
+    mid = args.manuscript_id
+    if not mid:
+        try:
+            mid = ensure_manuscript(args.api_url, args.extractor)
+        except Exception as e:
+            print(f"[ERROR] Failed to upload/analyze test story: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    print(f"\n=== NarrativeOS Eval | extractor={args.extractor} | manuscript={mid} ===\n")
 
     # Load answer key
     if not ANSWER_KEY_PATH.exists():
@@ -214,8 +250,8 @@ def main():
     print(f"Answer key: {len(answer_key)} items")
 
     # Fetch detected contradictions
-    print(f"Calling GET {args.api_url}/manuscripts/{args.manuscript_id}/contradictions ...")
-    detected, latency, json_validity = fetch_contradictions(args.api_url, args.manuscript_id)
+    print(f"Calling GET {args.api_url}/manuscripts/{mid}/contradictions ...")
+    detected, latency, json_validity = fetch_contradictions(args.api_url, mid)
     print(f"Detected: {len(detected)} contradictions | latency={latency:.2f}s | json_valid={json_validity:.1f}")
 
     # Quote exactness

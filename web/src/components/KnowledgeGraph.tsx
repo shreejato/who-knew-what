@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import "@xyflow/react/dist/style.css";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -195,7 +195,7 @@ export function KnowledgeGraph({
       {/* Main Canvas & Side Panel Container */}
       <div className="flex-1 flex relative overflow-hidden">
         {/* React Flow Graph */}
-        <div className="flex-1 h-full relative">
+        <div className="flex-1 w-full h-full relative" style={{ minHeight: "550px" }}>
           {isLoading && (
             <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center z-30">
               <div className="flex items-center space-x-2 text-indigo-400 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl text-xs font-mono">
@@ -208,25 +208,29 @@ export function KnowledgeGraph({
             </div>
           )}
 
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedCharId(node.id)}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.2}
-            maxZoom={1.8}
-            className="bg-zinc-950"
-          >
-            <Background color="#27272a" gap={20} size={1} />
-            <Controls className="bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 fill-zinc-300" />
-            <MiniMap
-              nodeColor={() => "#6366f1"}
-              maskColor="rgba(9, 9, 11, 0.85)"
-              className="bg-zinc-900 border border-zinc-800 rounded-xl"
-            />
-          </ReactFlow>
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, node) => setSelectedCharId(node.id)}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              defaultViewport={{ x: 50, y: 50, zoom: 0.9 }}
+              minZoom={0.2}
+              maxZoom={2.0}
+              className="bg-zinc-950"
+              style={{ width: "100%", height: "100%" }}
+            >
+              <Background color="#27272a" gap={24} size={1.5} />
+              <Controls className="bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 fill-zinc-300" />
+              <MiniMap
+                nodeColor={() => "#6366f1"}
+                maskColor="rgba(9, 9, 11, 0.85)"
+                className="bg-zinc-900 border border-zinc-800 rounded-xl"
+              />
+            </ReactFlow>
+          </ReactFlowProvider>
 
           {/* Empty state overlay if no characters */}
           {(!graphData || graphData.nodes.length === 0) && (
