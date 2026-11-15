@@ -2,7 +2,7 @@
   "dataset_id": "2fb3dd5b-5bc8-41d0-8f77-c5f3f472058d",
   "dataset_name": "narrativeos-extraction-seed",
   "file_path": "data/adaption/seed_dataset.jsonl",
-  "upload_status": "pending",
+  "upload_status": "uploaded",
   "estimate": {
     "estimated_credits_consumed": 1.0,
     "estimated_cost_usd": 1.0,
