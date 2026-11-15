@@ -7,7 +7,7 @@ export interface CharacterNodeData {
   id: string;
   name: string;
   aliases?: string[];
-  knownCount: number;
+  knownCount?: number;
   isSelected?: boolean;
 }
 
@@ -16,21 +16,27 @@ export const CharacterNode = memo(function CharacterNode({
 }: {
   data: CharacterNodeData;
 }) {
-  const initials = data.name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const name = data?.name?.trim() || "Unknown Character";
+  const initials =
+    name
+      .split(/\s+/)
+      .map((w) => w[0] || "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "C";
+
+  const knownCount = typeof data?.knownCount === "number" ? data.knownCount : 0;
+  const isSelected = Boolean(data?.isSelected);
+  const aliases = Array.isArray(data?.aliases) ? data.aliases : [];
 
   return (
     <div
-      className={`relative px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer shadow-xl ${
-        data.isSelected
+      className={`relative px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer shadow-xl select-none ${
+        isSelected
           ? "bg-zinc-900 border-indigo-400 ring-2 ring-indigo-500/50 shadow-indigo-500/20"
-          : "bg-zinc-900/90 border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800"
+          : "bg-zinc-900/95 border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800"
       }`}
-      style={{ minWidth: "180px" }}
+      style={{ minWidth: "180px", maxWidth: "240px" }}
     >
       <Handle
         type="target"
@@ -45,13 +51,13 @@ export const CharacterNode = memo(function CharacterNode({
         </div>
 
         {/* Details */}
-        <div className="overflow-hidden">
-          <h3 className="text-sm font-semibold text-zinc-100 truncate">
-            {data.name}
+        <div className="overflow-hidden flex-1">
+          <h3 className="text-sm font-semibold text-zinc-100 truncate" title={name}>
+            {name}
           </h3>
-          {data.aliases && data.aliases.length > 0 && (
-            <p className="text-[11px] text-zinc-400 truncate">
-              {data.aliases.join(", ")}
+          {aliases.length > 0 && (
+            <p className="text-[11px] text-zinc-400 truncate" title={aliases.join(", ")}>
+              {aliases.join(", ")}
             </p>
           )}
         </div>
@@ -62,12 +68,12 @@ export const CharacterNode = memo(function CharacterNode({
         <span className="text-zinc-400">Knowledge:</span>
         <span
           className={`px-2 py-0.5 rounded-full font-medium ${
-            data.knownCount > 0
+            knownCount > 0
               ? "bg-indigo-950 text-indigo-300 border border-indigo-800/60"
               : "bg-zinc-800 text-zinc-500"
           }`}
         >
-          {data.knownCount} {data.knownCount === 1 ? "fact" : "facts"}
+          {knownCount} {knownCount === 1 ? "fact" : "facts"}
         </span>
       </div>
 

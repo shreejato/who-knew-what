@@ -26,11 +26,11 @@ export async function createManuscript(
     const data = await r.json();
     return {
       id: data.id,
-      title: title || "Untitled Manuscript",
-      chapters: data.chapters || 4,
+      title: data.title || title || "Untitled Manuscript",
+      chapters: data.chapters || 1,
     };
   } catch (err) {
-    console.warn("Backend unavailable, using mock manuscript", err);
+    console.warn("Backend unavailable, using mock manuscript fallback", err);
     const chapters = Math.max(1, (text.match(/chapter\s+\d+/gi) || []).length);
     return { id: "mock-fallback", title: title || "Demo Manuscript", chapters: chapters || 4 };
   }
@@ -49,7 +49,7 @@ export async function analyze(id: string): Promise<{ status: string }> {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } catch (err) {
-    console.warn("Backend analysis failed, falling back to mock", err);
+    console.warn("Backend analysis error, continuing with fallback", err);
     return { status: "done" };
   }
 }
@@ -67,14 +67,15 @@ export async function getGraph(
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     
-    // If backend returns simple mock without multi-chapter differences, augment with local chapter data
-    if (data.nodes && (!data.facts || data.facts.length === 0)) {
-      const local = MOCK_GRAPHS_BY_CHAPTER[chapter] || MOCK_GRAPHS_BY_CHAPTER[1];
-      return { ...data, facts: local.facts };
-    }
-    return data;
+    // Ensure nodes and edges are valid arrays
+    return {
+      chapter: typeof data.chapter === "number" ? data.chapter : chapter,
+      nodes: Array.isArray(data.nodes) ? data.nodes : [],
+      edges: Array.isArray(data.edges) ? data.edges : [],
+      facts: Array.isArray(data.facts) ? data.facts : [],
+    };
   } catch (err) {
-    console.warn("Using mock graph fallback for chapter", chapter, err);
+    console.warn("Backend /graph unavailable, using mock fallback", err);
     return MOCK_GRAPHS_BY_CHAPTER[chapter] || MOCK_GRAPHS_BY_CHAPTER[1];
   }
 }
@@ -90,12 +91,12 @@ export async function getContradictions(
     const r = await fetch(`${BASE}/manuscripts/${id}/contradictions`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       return data;
     }
-    return MOCK_CONTRADICTIONS;
+    return [];
   } catch (err) {
-    console.warn("Using mock contradictions fallback", err);
+    console.warn("Backend /contradictions unavailable, using mock fallback", err);
     return MOCK_CONTRADICTIONS;
   }
 }

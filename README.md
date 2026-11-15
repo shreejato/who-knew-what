@@ -1,115 +1,204 @@
-# NarrativeOS (who-knew-what)
+# NarrativeOS — The Story Intelligence Engine
 
-> **"Your story can become more complicated without becoming inconsistent."**  
-> An AI reasoning & verification engine that tracks character epistemic state, catches plot holes with verbatim evidence, and never rewrites your prose.
-
----
-
-## Problem
-Fiction writers writing multi-POV, intricate plots (murder mysteries, fantasy epics, thrillers) struggle with continuity: *Did Mara already know Hale was poisoned when she accused him in Chapter 3? Was Roland in London or Drenwick on Tuesday night?* Existing tools (Sudowrite, Novelcrafter) focus on generating prose, but lack causal and epistemic reasoning to catch subtle continuity bugs.
-
-## Solution
-NarrativeOS combines:
-1. **Character Knowledge Graphs:** Track who knows what, when they learned it, and from whom.
-2. **Epistemic & Causal Rule Engine:** Flags premature knowledge, presence violations, timeline paradoxes, and attribute drift.
-3. **Verbatim Evidence Verification:** Every detected issue references exact, character-for-character substrings from your manuscript. Humans stay in control.
+> **"Your story can become more complicated without becoming inconsistent."**
+>
+> An AI reasoning & verification engine that tracks who knows what in your manuscript,
+> catches plot holes with verbatim evidence, and **never rewrites your prose**.
 
 ---
 
-## How It Works
+## The Problem
 
-```text
-[Manuscript (.txt/.docx)]
+Fiction writers who craft complex, multi-POV plots lose track of **epistemic state** —
+*who learned which secret, when, from whom*. Existing AI tools generate prose;
+none reason over character knowledge and causality to catch subtle continuity bugs.
+
+## Our Solution
+
+NarrativeOS is a **reasoning and verification engine**, not a prose generator. It combines:
+
+1. **Character Knowledge Graph** — tracks each character's epistemic state chapter by chapter
+2. **Causal Rule Engine** — detects premature knowledge, presence violations, timeline paradoxes, and attribute drift
+3. **Verbatim Evidence** — every finding shows exact quotes copied character-for-character from your manuscript; hallucinations are dropped by a quote-exact verifier
+
+---
+
+## Architecture
+
+```
+Manuscript (.txt / .docx)
         │
-        ▼ (Regex / Chunking)
-[Chapter Splitter] ──► [LLM Extractor (Gemini / Adaption fine-tuned)]
-                                │
-                                ▼ Structured JSON (facts, events, knowledge)
-                        [Facts & Knowledge Store]
-                                │
-                                ▼
-                        [Rule Engine (Python/networkx)]
-                         - premature_knowledge
-                         - presence / colocation
-                         - timeline & travel
-                         - character attributes
-                                │
-                                ▼ Candidate Warnings
-                        [Quote-Exact Verifier] ──► Drops ungrounded hallucinations
-                                │
-                                ▼ Clean API Output
-[Next.js + React Flow Knowledge Graph] ◄──► [Side-by-Side Evidence Panel]
+        ▼ Regex splitter
+  ┌─────────────┐
+  │   Chapters  │  1 … N
+  └──────┬──────┘
+         │  per-chapter call (cached by content hash)
+         ▼
+  ┌──────────────────────────────────────┐
+  │  Extractor  (EXTRACTOR=gemini|adapted)│
+  │  • GeminiExtractor  (baseline)        │
+  │  • AdaptedExtractor (Adaption LoRA)   │
+  └──────────────────┬───────────────────┘
+                     │  Structured JSON (characters, facts,
+                     │  knowledge_events, references, events)
+                     ▼
+            ┌────────────────┐
+            │  In-memory DB  │  (ManuscriptStorage)
+            └───────┬────────┘
+                    │
+                    ▼
+         ┌──────────────────┐
+         │   Rule Engine    │  Pure Python — no LLM
+         │  premature_know. │
+         │  presence        │
+         │  timeline        │
+         │  attribute       │
+         └────────┬─────────┘
+                  │  Candidate warnings
+                  ▼
+        ┌──────────────────────┐
+        │  Quote-Exact Verifier│  LLM (Gemini) + substring check
+        │  drops hallucinations│  — if quote ∉ chapter text, dropped
+        └──────────┬───────────┘
+                   │  Verified contradictions
+                   ▼
+  ┌──────────────────────────────────────────────┐
+  │            REST API  (FastAPI)               │
+  │  POST /manuscripts  • POST /…/analyze        │
+  │  GET  /…/graph?chapter=N                     │
+  │  GET  /…/contradictions                      │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │         Next.js Creator Studio               │
+  │  Upload ─► Knowledge Graph (React Flow)      │
+  │          ─► Chapter Slider (epistemic replay) │
+  │          ─► Contradiction Evidence Panel     │
+  │          ─► Model Comparison Badge/Table      │
+  └──────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Adaption Labs Integration
 
-We fine-tune a specialized **Story Continuity Extractor** using Adaption's Adaptive Data platform to solve the #1 failure mode of generalist LLMs: quote hallucinations and missing epistemic links.
+We fine-tune a specialized **Story Continuity Extractor** to fix the #1 LLM failure:
+hallucinated quotes and missing epistemic links.
 
-* **Invent a Dataset:** Synthetic continuity examples generated from behavioral prompt specifications (`data/adaption/invent_prompt.txt`).
-* **Gutenberg Public-Domain Dataset:** Labeled training examples from classic literature (`data/gutenberg/`) passed through strict quote-exactness filtering (`data/adaption/build_training.py`).
-* **Model Training:** Automated fine-tuning via Adaption's AutoScientist / Together AI integration.
-* **Architecture Switch:** Swappable extractor via `EXTRACTOR=gemini|adapted` adhering strictly to `/contracts/schema.json`.
+| Step | Description |
+|---|---|
+| **Invent a Dataset** | Synthetic extraction examples generated from `data/adaption/invent_prompt.txt` |
+| **Gutenberg corpus** | Public-domain chapters labeled via baseline Gemini + quote-filter (`data/adaption/build_training.py`) |
+| **Fine-tune** | LoRA adapter on open-weight model via Adaption AutoScientist / Together AI |
+| **Switch** | `EXTRACTOR=adapted` swaps in `AdaptedExtractor`; both return identical contract JSON |
 
-| Extractor Model | JSON Validity | Quote Exactness | Precision | Recall | F1 Score | Latency (avg) |
-|---|---|---|---|---|---|---|
-| **Gemini 2.5 Flash (Baseline)** | 98.2% | 91.5% | 0.833 | 0.750 | 0.789 | 2.14s |
-| **Adaption Fine-Tuned (Adapted)** | 99.8% | 98.9% | 0.910 | 0.875 | 0.892 | 1.48s |
+### Accuracy — Planted-Error Test Suite (8 known contradictions, never trained on)
 
-*(Benchmark run on 6-chapter held-out planted-error test suite; never included in training data).*
+| Metric | Gemini Baseline | Adaption Fine-Tuned |
+|---|---|---|
+| JSON Validity | 100.0% | Pending fine-tune run |
+| Quote Exactness | 100.0% | Pending fine-tune run |
+| Precision | 0.800 | Pending fine-tune run |
+| Recall | 0.500 | Pending fine-tune run |
+| **F1** | **0.615** | **Pending fine-tune run** |
+| Latency (avg) | 2.07s | Pending fine-tune run |
+
+*Full evaluation logs and per-type breakdown recorded in [`eval/results.md`](eval/results.md)*
 
 ---
 
 ## Tech Stack
-* **Frontend:** Next.js (App Router), Tailwind CSS, React Flow, Lucide Icons
-* **Backend:** Python 3.12, FastAPI, SQLModel / SQLite, NetworkX, Pydantic v2
-* **AI & Fine-Tuning:** Google Gemini 2.5 Flash, Adaption Labs (Adaptive Data, AutoScientist)
-* **Testing & Eval:** Pytest, custom precision/recall/F1 benchmark suite (`eval/run_eval.py`)
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), Tailwind CSS, React Flow |
+| Backend | Python 3.12, FastAPI, Pydantic v2, NetworkX |
+| AI — Baseline | Google Gemini 2.0 Flash (structured JSON output) |
+| AI — Fine-Tuned | Adaption Labs (Adaptive Data + AutoScientist) |
+| Deployment | Vercel (web) + Render (api) |
 
 ---
 
-## Quickstart
+## Setup
 
-### Backend
+### 1. Clone & configure
+
+```bash
+git clone https://github.com/shreejato/who-knew-what.git
+cd who-knew-what
+cp .env.example .env
+# → paste your GEMINI_API_KEY into .env
+```
+
+### 2. Backend
+
 ```bash
 cd api
 python -m venv .venv
-source .venv/bin/activate  # Windows: .\.venv\Scripts\Activate.ps1
+source .venv/bin/activate        # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+# Verify → http://localhost:8000/docs
 ```
 
-### Frontend
+### 3. Frontend
+
 ```bash
 cd web
 npm install
 npm run dev
-# Open http://localhost:3000
+# Verify → http://localhost:3000
+```
+
+### 4. Run the accuracy benchmark
+
+```bash
+# (Backend must be running)
+cd eval
+python submit_and_eval.py --extractor gemini
+# Results written to eval/results.md
 ```
 
 ---
 
 ## Project Structure
-```text
-├── api/          # FastAPI server, extraction pipeline, rule engine, verifier
-├── contracts/    # Shared schema.json and mock payloads
-├── data/         # Planted-error test story, answer key, gutenberg samples, adaption data
-├── docs/         # Architecture diagrams, adaption plan, demo script, team guide
-├── eval/         # run_eval.py and benchmark results.md
-└── web/          # Next.js interactive creator studio & React Flow graph
+
+```
+├── api/           FastAPI server (extraction, rules, verifier, routes)
+│   └── app/
+│       ├── extraction/   GeminiExtractor · AdaptedExtractor · factory
+│       ├── rules/        premature_knowledge · presence · timeline · attribute
+│       └── verifier/     quote-exact contradiction verifier
+├── contracts/     schema.json + mock payloads
+├── data/
+│   ├── test_story.txt      6-chapter planted-error test story (held-out, never trained on)
+│   ├── answer_key.json     8 known errors with verbatim quotes
+│   ├── gutenberg/          Public-domain source chapters (Sherlock Holmes)
+│   └── adaption/           Invent-a-Dataset prompt + training pipeline
+├── docs/          Architecture notes, Adaption plan, demo script
+├── eval/
+│   ├── submit_and_eval.py  One-shot: upload → analyze → eval → results.md
+│   ├── run_eval.py         Standalone eval against existing manuscript id
+│   └── results.md          Benchmark output (auto-appended)
+└── web/           Next.js studio (upload, knowledge graph, contradiction panel)
 ```
 
 ---
 
-## Roadmap (Live Finale Build — Nov 21)
-* **What-If Story Simulator:** Branch the knowledge graph ("What if Roland learned of the will in Chapter 1?") without altering the text.
-* **Interactive Timeline View:** Visual travel-time and simultaneous-presence verification.
-* **Exportable Continuity Audit:** Downloadable PDF report with highlighted manuscript citations.
+## Roadmap — Finale Build (Nov 21, live at TIU)
+
+- **What-If Story Simulator** — branch alternate knowledge without altering the text
+- **Interactive Timeline View** — travel-time and simultaneous-presence visualization
+- **Exportable Consistency Report** — downloadable PDF with manuscript citations
+- **Adaption Round 2** — retrain on judges' own sample text, live
 
 ---
 
 ## Team
-* **Member 1 (A):** AI & Backend Lead
-* **Member 2 (B):** Frontend Lead
-* **Member 3 (C):** Data, Adaption, Integration, Docs & Video Lead
+
+| Member | Role |
+|---|---|
+| **Member 1 (A)** | AI & Backend Lead — extraction, rule engine, verifier, API |
+| **Member 2 (B)** | Frontend Lead — dark UI, React Flow graph, contradiction panel |
+| **Member 3 (C)** | Data, Adaption, Docs, Deploy, Video |

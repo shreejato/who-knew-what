@@ -24,29 +24,35 @@ export function CharacterSidePanel({
 
   if (!character) return null;
 
+  const knownFactIds = Array.isArray(character.knows) ? character.knows : [];
+  const safeFacts = Array.isArray(facts) ? facts : [];
+  const safeEdges = Array.isArray(edges) ? edges : [];
+  const safeNodes = Array.isArray(allNodes) ? allNodes : [];
+  const safeAliases = Array.isArray(character.aliases) ? character.aliases : [];
+
   // Facts known by this character
-  const knownFacts = facts.filter((f) => character.knows.includes(f.id));
+  const knownFacts = safeFacts.filter((f) => knownFactIds.includes(f.id));
 
   // Facts existing up to this chapter that character DOES NOT know yet
-  const unknownFacts = facts.filter((f) => !character.knows.includes(f.id));
+  const unknownFacts = safeFacts.filter((f) => !knownFactIds.includes(f.id));
 
   // Transmissions received by this character
-  const receivedTransmissions = edges.filter(
-    (e) => e.target === character.id && e.chapter <= currentChapter
+  const receivedTransmissions = safeEdges.filter(
+    (e) => String(e.target) === String(character.id) && e.chapter <= currentChapter
   );
 
   // Transmissions sent by this character to others
-  const sentTransmissions = edges.filter(
-    (e) => e.source === character.id && e.chapter <= currentChapter
+  const sentTransmissions = safeEdges.filter(
+    (e) => String(e.source) === String(character.id) && e.chapter <= currentChapter
   );
 
   const getCharacterName = (id: string | null) => {
     if (!id) return "Unknown";
-    const found = allNodes.find((n) => n.id === id);
+    const found = safeNodes.find((n) => String(n.id) === String(id) || n.name.toLowerCase() === id.toLowerCase());
     return found ? found.name : id;
   };
 
-  const getModeBadge = (mode: KnowledgeMode) => {
+  const getModeBadge = (mode: KnowledgeMode | string) => {
     switch (mode) {
       case "told":
         return "bg-indigo-950 text-indigo-300 border-indigo-800";
@@ -62,7 +68,7 @@ export function CharacterSidePanel({
   };
 
   return (
-    <aside className="w-96 bg-zinc-900/95 backdrop-blur-md border-l border-zinc-800 flex flex-col h-full z-20 shadow-2xl">
+    <aside className="w-80 sm:w-96 bg-zinc-900/95 backdrop-blur-md border-l border-zinc-800 flex flex-col h-full z-20 shadow-2xl shrink-0">
       {/* Top Header */}
       <div className="p-4 border-b border-zinc-800 flex items-start justify-between">
         <div>
@@ -70,9 +76,9 @@ export function CharacterSidePanel({
             <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
             <h2 className="text-base font-bold text-zinc-100">{character.name}</h2>
           </div>
-          {character.aliases && character.aliases.length > 0 && (
+          {safeAliases.length > 0 && (
             <p className="text-xs text-zinc-400 mt-0.5">
-              Aliases: {character.aliases.join(", ")}
+              Aliases: {safeAliases.join(", ")}
             </p>
           )}
           <span className="inline-block mt-2 text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
@@ -235,7 +241,7 @@ export function CharacterSidePanel({
               ) : (
                 <div className="space-y-2">
                   {receivedTransmissions.map((edge, idx) => {
-                    const fact = facts.find((f) => f.id === edge.fact_id);
+                    const fact = safeFacts.find((f) => f.id === edge.fact_id);
                     return (
                       <div key={idx} className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs space-y-1">
                         <div className="flex items-center justify-between">
@@ -262,7 +268,7 @@ export function CharacterSidePanel({
               ) : (
                 <div className="space-y-2">
                   {sentTransmissions.map((edge, idx) => {
-                    const fact = facts.find((f) => f.id === edge.fact_id);
+                    const fact = safeFacts.find((f) => f.id === edge.fact_id);
                     return (
                       <div key={idx} className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs space-y-1">
                         <div className="flex items-center justify-between">
