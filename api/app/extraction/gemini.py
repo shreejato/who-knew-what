@@ -24,12 +24,15 @@ class GeminiExtractor(BaseExtractor):
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         super().__init__()
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         self.client = None
         if self.api_key:
             try:
                 from google import genai
-                self.client = genai.Client(api_key=self.api_key)
+                if self.api_key.startswith("AQ."):
+                    self.client = genai.Client(http_options={"headers": {"Authorization": f"Bearer {self.api_key}"}})
+                else:
+                    self.client = genai.Client(api_key=self.api_key)
             except Exception as e:
                 logger.error(f"Failed to initialize google-genai client: {e}")
 

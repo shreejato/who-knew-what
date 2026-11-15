@@ -32,12 +32,15 @@ Be conservative: if a reasonable reading avoids the conflict, answer false.
 class ContradictionVerifier:
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         self.client = None
         if self.api_key:
             try:
                 from google import genai
-                self.client = genai.Client(api_key=self.api_key)
+                if self.api_key.startswith("AQ."):
+                    self.client = genai.Client(http_options={"headers": {"Authorization": f"Bearer {self.api_key}"}})
+                else:
+                    self.client = genai.Client(api_key=self.api_key)
             except Exception as e:
                 logger.warning(f"Could not initialize genai client for verifier: {e}")
 
@@ -53,15 +56,17 @@ class ContradictionVerifier:
             text_a = chapter_texts.get(cand.chapter_a, "")
             text_b = chapter_texts.get(cand.chapter_b, "") if cand.chapter_b else text_a
 
-            if use_llm and self.client and text_a:
-                res = self._verify_with_llm(cand, text_a, text_b)
-                if res is not None:
-                    verified.append(res)
-            else:
-                # Verifier fallback using candidate's quotes directly
+            try:
+                if use_llm and self.client and text_a:
+                    res = self._verify_with_llm(cand, text_a, text_b)
+                else:
+                    res = self._verify_exact_substrings(cand, text_a, text_b)
+            except Exception as e:
+                logger.warning(f"Verifier raised for {cand.id}, falling back to substring rule: {e}")
                 res = self._verify_exact_substrings(cand, text_a, text_b)
-                if res is not None:
-                    verified.append(res)
+
+            if res is not None:
+                verified.append(res)
 
         return verified
 

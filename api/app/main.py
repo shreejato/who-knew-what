@@ -120,12 +120,25 @@ def analyze(mid: str, extractor_name: Optional[str] = Query(None, alias="extract
         ch_text = ch["text"]
         chapter_texts[ch_num] = ch_text
 
-        ext = extractor.extract_chapter(
-            chapter_text=ch_text,
-            chapter_num=ch_num,
-            known_characters=running_characters,
-            use_cache=True,
-        )
+        try:
+            ext = extractor.extract_chapter(
+                chapter_text=ch_text,
+                chapter_num=ch_num,
+                known_characters=running_characters,
+                use_cache=True,
+            )
+        except Exception as e:
+            # If the LLM extractor fails (bad key, quota), log and use empty extraction
+            # so the pipeline continues and rule engine still runs on whatever was cached
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Extractor failed for chapter {ch_num}: {e}. Using empty extraction."
+            )
+            from app.models import ChapterExtraction
+            ext = ChapterExtraction(
+                characters=[], facts=[], knowledge_events=[], references=[], events=[]
+            )
+
         storage.save_chapter_extraction(mid, ch_num, ext)
 
         for c in ext.characters:
@@ -144,11 +157,13 @@ def analyze(mid: str, extractor_name: Optional[str] = Query(None, alias="extract
     )
 
     # 3. Verification phase (Exact-quote validation + LLM Verifier)
+    # use_llm=True when GEMINI_API_KEY is configured; falls back to substring rule automatically
+    use_llm_verifier = bool(os.getenv("GEMINI_API_KEY", "").strip())
     verifier = ContradictionVerifier()
     verified_contradictions = verifier.verify_candidates(
         candidates=candidates,
         chapter_texts=chapter_texts,
-        use_llm=True,
+        use_llm=use_llm_verifier,
     )
 
     # 4. Store verified results with metadata

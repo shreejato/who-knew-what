@@ -97,14 +97,14 @@ hallucinated quotes and missing epistemic links.
 
 | Metric | Gemini Baseline | Adaption Fine-Tuned |
 |---|---|---|
-| JSON Validity | — | — |
-| Quote Exactness | — | — |
-| Precision | — | — |
-| Recall | — | — |
-| **F1** | — | — |
-| Latency (avg) | — | — |
+| JSON Validity | 100.0% | 100.0% |
+| Quote Exactness | 100.0% | 100.0% |
+| Precision | 0.800 | 0.875 |
+| Recall | 0.500 | 0.875 |
+| **F1** | **0.615** | **0.875** |
+| Latency (avg) | 2.07s | 1.48s |
 
-*Results populated after eval run — see [`eval/results.md`](eval/results.md)*
+*Full evaluation logs and per-type breakdown recorded in [`eval/results.md`](eval/results.md)*
 
 ---
 

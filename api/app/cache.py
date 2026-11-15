@@ -7,8 +7,9 @@ CACHE_DIR = Path(__file__).resolve().parents[2] / ".cache" / "extraction"
 
 
 def get_chapter_hash(chapter_text: str) -> str:
-    """Return SHA-256 hash of chapter text."""
-    return hashlib.sha256(chapter_text.strip().encode("utf-8")).hexdigest()
+    """Return SHA-256 hash of chapter text, normalizing newlines to prevent Windows CRLF mismatches."""
+    normalized = chapter_text.strip().replace("\r\n", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def get_cached_extraction(chapter_hash: str) -> Optional[Dict[str, Any]]:
