@@ -1,51 +1,148 @@
 "use client";
-import { useState } from "react";
-import { createManuscript, analyze, getGraph, getContradictions } from "@/lib/api";
 
-const SAMPLE = "Chapter 1\nMara met Hale at the old house.\nChapter 2\nInspector Rao arrived.";
+import React, { useState, useEffect, useCallback } from "react";
+import { Header } from "@/components/Header";
+import { UploadView } from "@/components/UploadView";
+import { KnowledgeGraph } from "@/components/KnowledgeGraph";
+import { ContradictionsView } from "@/components/ContradictionsView";
+import { ModelComparisonModal } from "@/components/ModelComparisonModal";
+import {
+  createManuscript,
+  analyze,
+  getGraph,
+  getContradictions,
+} from "@/lib/api";
+import { GraphResponse, Contradiction, Manuscript } from "@/lib/types";
+import { SAMPLE_STORY } from "@/lib/mockData";
 
 export default function Home() {
-  const [text, setText] = useState(SAMPLE);
-  const [out, setOut] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [activeTab, setActiveTab] = useState<"upload" | "graph" | "contradictions">("upload");
+  const [manuscript, setManuscript] = useState<Manuscript>({
+    id: "m-demo-1",
+    title: "The Blackwood Manor Mystery",
+    chapters: 4,
+  });
+  const [currentChapter, setCurrentChapter] = useState(1);
+  const [graphData, setGraphData] = useState<GraphResponse | null>(null);
+  const [contradictions, setContradictions] = useState<Contradiction[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGraphLoading, setIsGraphLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [extractorType, setExtractorType] = useState<"gemini" | "adapted">("gemini");
 
-  async function run() {
-    setBusy(true);
-    setErr("");
+  // Load initial graph data for the demo manuscript
+  const loadGraphForChapter = useCallback(
+    async (mid: string, ch: number) => {
+      setIsGraphLoading(true);
+      try {
+        const data = await getGraph(mid, ch);
+        setGraphData(data);
+      } catch (err) {
+        console.error("Failed to load graph for chapter", ch, err);
+      } finally {
+        setIsGraphLoading(false);
+      }
+    },
+    []
+  );
+
+  // Initialize with Chapter 1 data and mock contradictions on startup
+  useEffect(() => {
+    loadGraphForChapter("m-demo-1", 1);
+    getContradictions("m-demo-1").then((items) => {
+      if (items && items.length > 0) {
+        setContradictions(items);
+      }
+    });
+  }, [loadGraphForChapter]);
+
+  // Handle chapter scrubber slider changes
+  const handleChapterChange = async (chapter: number) => {
+    setCurrentChapter(chapter);
+    await loadGraphForChapter(manuscript.id, chapter);
+  };
+
+  // Full analysis workflow
+  const handleAnalyze = async (title: string, text: string) => {
+    setIsAnalyzing(true);
+    setError(null);
     try {
-      const m = await createManuscript("Demo", text);
+      // Step 1: Create manuscript
+      const m = await createManuscript(title, text);
+      setManuscript(m);
+
+      // Step 2: Trigger analysis pipeline
       await analyze(m.id);
-      const graph = await getGraph(m.id, 1);
-      const contradictions = await getContradictions(m.id);
-      setOut({ manuscript: m, graph, contradictions });
-    } catch (e) {
-      setErr(String(e));
+
+      // Step 3: Fetch initial chapter graph and contradiction list
+      setCurrentChapter(1);
+      const [g, c] = await Promise.all([
+        getGraph(m.id, 1),
+        getContradictions(m.id),
+      ]);
+
+      setGraphData(g);
+      setContradictions(c);
+
+      // Transition smoothly to the visual knowledge graph
+      setActiveTab("graph");
+    } catch (err: any) {
+      setError(err?.message || "Failed to analyze manuscript. Please check backend connection.");
+    } finally {
+      setIsAnalyzing(false);
     }
-    setBusy(false);
-  }
+  };
 
   return (
-    <main className="mx-auto max-w-3xl p-8 space-y-4">
-      <h1 className="text-2xl font-bold">who-knew-what</h1>
-      <textarea
-        className="w-full h-40 border rounded p-2 text-black"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
+      {/* Top Navigation */}
+      <Header
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        contradictionCount={contradictions.length}
+        manuscriptTitle={manuscript.title}
+        chapterCount={manuscript.chapters}
+        onOpenModelModal={() => setIsModelModalOpen(true)}
+        extractorType={extractorType}
+        onReset={() => setActiveTab("upload")}
       />
-      <button
-        onClick={run}
-        disabled={busy}
-        className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-      >
-        {busy ? "Analyzing..." : "Analyze"}
-      </button>
-      {err && <p className="text-red-600">{err}</p>}
-      {out !== null && (
-        <pre className="text-xs bg-gray-100 text-black p-3 rounded overflow-auto">
-          {JSON.stringify(out, null, 2)}
-        </pre>
-      )}
-    </main>
+
+      {/* Main Interactive View Tabs */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {activeTab === "upload" && (
+          <UploadView
+            onAnalyze={handleAnalyze}
+            isAnalyzing={isAnalyzing}
+            error={error}
+          />
+        )}
+
+        {activeTab === "graph" && (
+          <KnowledgeGraph
+            graphData={graphData}
+            currentChapter={currentChapter}
+            totalChapters={manuscript.chapters}
+            onChapterChange={handleChapterChange}
+            isLoading={isGraphLoading}
+          />
+        )}
+
+        {activeTab === "contradictions" && (
+          <ContradictionsView
+            contradictions={contradictions}
+            isLoading={isAnalyzing}
+          />
+        )}
+      </main>
+
+      {/* Adaption Model Evaluation Modal */}
+      <ModelComparisonModal
+        isOpen={isModelModalOpen}
+        onClose={() => setIsModelModalOpen(false)}
+        currentExtractor={extractorType}
+        onToggleExtractor={setExtractorType}
+      />
+    </div>
   );
 }
