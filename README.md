@@ -25,59 +25,35 @@ NarrativeOS is a **reasoning and verification engine**, not a prose generator. I
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    A[Manuscript .txt / .docx] --> B[Chapter Splitter regex]
+    B --> C[Gemini Extractor / Adaption LoRA]
+    C --> D[In-Memory Knowledge Store]
+    D --> E[Pure Python Rule Engine\n- premature_knowledge\n- presence\n- timeline\n- attribute]
+    E --> F[Quote-Exact Verifier\n- substring containment check\n- LLM verification]
+    F --> G[FastAPI Endpoints\n/manuscripts\n/analyze\n/graph\n/contradictions]
+    G --> H[Next.js Creator Studio\n- React Flow Knowledge Graph\n- Chapter Timeline Scrubber\n- Side-by-Side Evidence Cards]
 ```
-Manuscript (.txt / .docx)
-        │
-        ▼ Regex splitter
-  ┌─────────────┐
-  │   Chapters  │  1 … N
-  └──────┬──────┘
-         │  per-chapter call (cached by content hash)
-         ▼
-  ┌──────────────────────────────────────┐
-  │  Extractor  (EXTRACTOR=gemini|adapted)│
-  │  • GeminiExtractor  (baseline)        │
-  │  • AdaptedExtractor (Adaption LoRA)   │
-  └──────────────────┬───────────────────┘
-                     │  Structured JSON (characters, facts,
-                     │  knowledge_events, references, events)
-                     ▼
-            ┌────────────────┐
-            │  In-memory DB  │  (ManuscriptStorage)
-            └───────┬────────┘
-                    │
-                    ▼
-         ┌──────────────────┐
-         │   Rule Engine    │  Pure Python — no LLM
-         │  premature_know. │
-         │  presence        │
-         │  timeline        │
-         │  attribute       │
-         └────────┬─────────┘
-                  │  Candidate warnings
-                  ▼
-        ┌──────────────────────┐
-        │  Quote-Exact Verifier│  LLM (Gemini) + substring check
-        │  drops hallucinations│  — if quote ∉ chapter text, dropped
-        └──────────┬───────────┘
-                   │  Verified contradictions
-                   ▼
-  ┌──────────────────────────────────────────────┐
-  │            REST API  (FastAPI)               │
-  │  POST /manuscripts  • POST /…/analyze        │
-  │  GET  /…/graph?chapter=N                     │
-  │  GET  /…/contradictions                      │
-  └──────────────────┬───────────────────────────┘
-                     │
-                     ▼
-  ┌──────────────────────────────────────────────┐
-  │         Next.js Creator Studio               │
-  │  Upload ─► Knowledge Graph (React Flow)      │
-  │          ─► Chapter Slider (epistemic replay) │
-  │          ─► Contradiction Evidence Panel     │
-  │          ─► Model Comparison Badge/Table      │
-  └──────────────────────────────────────────────┘
-```
+
+---
+
+## Application Walkthrough
+
+### 1. Manuscript Analysis Workspace
+Upload or paste raw manuscript text with standard chapter markers. Tracks prose statistics and chapter boundaries automatically.
+
+![Manuscript Workspace](docs/screenshots/01_manuscript.png)
+
+### 2. Epistemic Knowledge Graph
+Scrub chapter-by-chapter across the story timeline to visualize what characters know, when they learned it, and from whom.
+
+![Knowledge Graph](docs/screenshots/02_knowledge_graph.png)
+
+### 3. Contradiction Detector & Verbatim Evidence
+Inspect flagged continuity paradoxes with character-exact text evidence and suggested creative resolutions while maintaining 100% author control.
+
+![Contradictions View](docs/screenshots/03_contradictions.png)
 
 ---
 
@@ -95,16 +71,25 @@ hallucinated quotes and missing epistemic links.
 
 ### Accuracy — Planted-Error Test Suite (8 known contradictions, never trained on)
 
+*Ground-truth benchmark recorded from [`eval/results.md`](eval/results.md)*
+
 | Metric | Gemini Baseline | Adaption Fine-Tuned |
 |---|---|---|
 | JSON Validity | 100.0% | Pending fine-tune run |
 | Quote Exactness | 100.0% | Pending fine-tune run |
 | Precision | 0.800 | Pending fine-tune run |
 | Recall | 0.500 | Pending fine-tune run |
-| **F1** | **0.615** | **Pending fine-tune run** |
-| Latency (avg) | 2.07s | Pending fine-tune run |
+| **Overall F1** | **0.615** | **Pending fine-tune run** |
+| Average Latency | 2.07s | Pending fine-tune run |
 
-*Full evaluation logs and per-type breakdown recorded in [`eval/results.md`](eval/results.md)*
+#### Per-Contradiction Type Performance (Gemini Baseline)
+
+| Contradiction Type | Precision | Recall | F1 Score |
+|---|---|---|---|
+| **premature_knowledge** | **1.000** | **1.000** | **1.000** |
+| **attribute** | 1.000 | 0.500 | 0.667 |
+| **presence** | 0.500 | 0.500 | 0.500 |
+| **timeline** | 0.000 | 0.000 | 0.000 |
 
 ---
 
@@ -112,7 +97,7 @@ hallucinated quotes and missing epistemic links.
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15 (App Router), Tailwind CSS, React Flow |
+| Frontend | Next.js 16 (App Router), Tailwind CSS, React Flow |
 | Backend | Python 3.12, FastAPI, Pydantic v2, NetworkX |
 | AI — Baseline | Google Gemini 2.0 Flash (structured JSON output) |
 | AI — Fine-Tuned | Adaption Labs (Adaptive Data + AutoScientist) |
@@ -120,45 +105,69 @@ hallucinated quotes and missing epistemic links.
 
 ---
 
-## Setup
+## Setup & Quickstart
 
-### 1. Clone & configure
+### 1. Clone & Configure
 
 ```bash
 git clone https://github.com/shreejato/who-knew-what.git
 cd who-knew-what
+
+# Linux/macOS
 cp .env.example .env
-# → paste your GEMINI_API_KEY into .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
 ```
 
-### 2. Backend
+> **Note:** `.env.example` contains variable names with placeholder values. Paste your `GEMINI_API_KEY` into `.env` for live LLM extraction. When no key is set, the engine operates using cached extractions and substring verification rules.
 
-```bash
+### 2. Backend (FastAPI)
+
+```powershell
 cd api
 python -m venv .venv
-source .venv/bin/activate        # Windows: .\.venv\Scripts\Activate.ps1
+
+# Windows PowerShell (if script execution is restricted):
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\.venv\Scripts\Activate.ps1
+
+# Linux/macOS:
+# source .venv/bin/activate
+
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-# Verify → http://localhost:8000/docs
 ```
+Verify: Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
 
-### 3. Frontend
+### 3. Frontend (Next.js)
 
 ```bash
 cd web
 npm install
 npm run dev
-# Verify → http://localhost:3000
 ```
 
-### 4. Run the accuracy benchmark
+> **Windows Build Note:** Turbopack in Next.js 16 can encounter a child process exit on Windows during `next build`. To generate a production build safely on Windows, use:
+> ```bash
+> npm run build -- --webpack
+> ```
 
-```bash
-# (Backend must be running)
+Verify: Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 4. Run the Accuracy Benchmark
+
+```powershell
+# Ensure the backend server is running on port 8000
 cd eval
+
+# Windows PowerShell
+..\api\.venv\Scripts\python.exe submit_and_eval.py --extractor gemini
+
+# Linux/macOS
 python submit_and_eval.py --extractor gemini
-# Results written to eval/results.md
 ```
+Results will be displayed in the terminal and recorded in [`eval/results.md`](eval/results.md).
 
 ---
 
@@ -174,9 +183,12 @@ python submit_and_eval.py --extractor gemini
 ├── data/
 │   ├── test_story.txt      6-chapter planted-error test story (held-out, never trained on)
 │   ├── answer_key.json     8 known errors with verbatim quotes
-│   ├── gutenberg/          Public-domain source chapters (Sherlock Holmes)
+│   ├── gutenberg/          Public-domain source chapters (Sherlock Holmes, Poe)
 │   └── adaption/           Invent-a-Dataset prompt + training pipeline
-├── docs/          Architecture notes, Adaption plan, demo script
+├── docs/
+│   ├── screenshots/        Application screenshots (UI, graph, contradictions)
+│   ├── ADAPTION_PIPELINE.md Adaption fine-tuning workflow
+│   └── SUBMISSION_CHECKLIST.md Final submission checklist
 ├── eval/
 │   ├── submit_and_eval.py  One-shot: upload → analyze → eval → results.md
 │   ├── run_eval.py         Standalone eval against existing manuscript id
@@ -186,19 +198,11 @@ python submit_and_eval.py --extractor gemini
 
 ---
 
-## Roadmap — Finale Build (Nov 21, live at TIU)
-
-- **What-If Story Simulator** — branch alternate knowledge without altering the text
-- **Interactive Timeline View** — travel-time and simultaneous-presence visualization
-- **Exportable Consistency Report** — downloadable PDF with manuscript citations
-- **Adaption Round 2** — retrain on judges' own sample text, live
-
----
-
 ## Team
 
 | Member | Role |
 |---|---|
-| **Member 1 (A)** | AI & Backend Lead — extraction, rule engine, verifier, API |
-| **Member 2 (B)** | Frontend Lead — dark UI, React Flow graph, contradiction panel |
-| **Member 3 (C)** | Data, Adaption, Docs, Deploy, Video |
+| **Member 1 (A)** | AI & Backend Lead — extraction pipeline, causal rule engine, verifier, API |
+| **Member 2 (B)** | Frontend Lead — dark writer UI, React Flow knowledge graph, contradiction panel |
+| **Member 3 (C)** | Data, Adaption & Evaluation Lead — training data, eval benchmark, video script |
+| **Member 4 (D)** | QA & Product Evaluation Lead (Placeholder) |
