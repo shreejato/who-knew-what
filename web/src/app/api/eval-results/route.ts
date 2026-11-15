@@ -125,7 +125,7 @@ export async function GET() {
       source: "eval/results.md",
       groundTruth: "8 planted errors in test_story.txt (held-out)",
     });
-  } catch (e) {
+  } catch {
     return NextResponse.json({
       metrics: defaultMetrics,
       source: "fallback",

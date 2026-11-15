@@ -31,46 +31,56 @@ export const CharacterNode = memo(function CharacterNode({
 
   return (
     <div
-      className={`relative px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer shadow-xl select-none ${
+      className={`relative px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer select-none ${
         isSelected
-          ? "bg-zinc-900 border-indigo-400 ring-2 ring-indigo-500/50 shadow-indigo-500/20"
-          : "bg-zinc-900/95 border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800"
+          ? "bg-[#1E1E4E] border-[#7C5CFF] shadow-[0_0_24px_rgba(108,71,255,0.4)] ring-2 ring-[#6C47FF]/60"
+          : "bg-[#151538]/95 border-white/[0.08] hover:border-[#6C47FF]/40 hover:bg-[#1A1A44] shadow-lg shadow-black/40"
       }`}
-      style={{ minWidth: "180px", maxWidth: "240px" }}
+      style={{ minWidth: "190px", maxWidth: "250px" }}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="w-2.5 h-2.5 bg-indigo-500 border-2 border-zinc-900 rounded-full"
+        className="w-2.5 h-2.5 !bg-[#6C47FF] !border-2 !border-[#0B0B1E] rounded-full"
       />
 
       <div className="flex items-center space-x-3">
-        {/* Avatar circle */}
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20 shrink-0">
-          {initials}
+        {/* Glowing Avatar circle */}
+        <div
+          className={`w-11 h-11 rounded-2xl p-[1.5px] shrink-0 transition-transform ${
+            isSelected
+              ? "bg-gradient-to-tr from-[#6C47FF] to-[#9B7DFF] shadow-md shadow-[#6C47FF]/50 scale-105"
+              : "bg-gradient-to-tr from-white/10 to-white/5"
+          }`}
+        >
+          <div className="w-full h-full bg-[#151538] rounded-[14px] flex items-center justify-center font-bold text-xs text-white">
+            {initials}
+          </div>
         </div>
 
-        {/* Details */}
+        {/* Character Name & Aliases */}
         <div className="overflow-hidden flex-1">
-          <h3 className="text-sm font-semibold text-zinc-100 truncate" title={name}>
+          <h3 className="text-sm font-bold text-white truncate" title={name}>
             {name}
           </h3>
-          {aliases.length > 0 && (
-            <p className="text-[11px] text-zinc-400 truncate" title={aliases.join(", ")}>
+          {aliases.length > 0 ? (
+            <p className="text-[11px] text-[#A9A9C9] truncate" title={aliases.join(", ")}>
               {aliases.join(", ")}
             </p>
+          ) : (
+            <span className="text-[10px] text-[#6F6F94] block">Protagonist</span>
           )}
         </div>
       </div>
 
-      {/* Facts known pill */}
-      <div className="mt-2.5 pt-2 border-t border-zinc-800 flex items-center justify-between text-[11px]">
-        <span className="text-zinc-400">Knowledge:</span>
+      {/* Facts known badge */}
+      <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
+        <span className="text-[#6F6F94] text-[10px] uppercase font-mono">Facts Known</span>
         <span
-          className={`px-2 py-0.5 rounded-full font-medium ${
+          className={`px-2.5 py-0.5 rounded-full font-semibold text-[10px] ${
             knownCount > 0
-              ? "bg-indigo-950 text-indigo-300 border border-indigo-800/60"
-              : "bg-zinc-800 text-zinc-500"
+              ? "bg-[#6C47FF]/20 text-indigo-300 border border-[#6C47FF]/40"
+              : "bg-white/[0.04] text-[#6F6F94]"
           }`}
         >
           {knownCount} {knownCount === 1 ? "fact" : "facts"}
@@ -80,7 +90,7 @@ export const CharacterNode = memo(function CharacterNode({
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-2.5 h-2.5 bg-violet-500 border-2 border-zinc-900 rounded-full"
+        className="w-2.5 h-2.5 !bg-[#7C5CFF] !border-2 !border-[#0B0B1E] rounded-full"
       />
     </div>
   );
