@@ -12,16 +12,26 @@ Each example consists of:
 2. Output:
    - A structured JSON object matching the NarrativeOS contract schema containing:
      - "characters": new characters introduced, plus aliases for known characters.
-     - "facts": story-relevant claims (secrets, crimes, relationships, objects, locations, medical causes of death, wills).
+     - "facts": story-relevant claims. Emphasize:
+       * Physical and numerical attributes: age (e.g., "sixty-two years old"), eye color, hair color, scars, and identifying traits.
+       * Character state: confirmed death, illness, injuries, or absence.
+       * Temporal and travel assertions: stated travel durations (e.g., "fourteen hours to drive"), distances, and alibis.
+       * Core plot facts: secrets, crimes, wills, and relationships.
      - "knowledge_events": when a character LEARNS a fact in this chapter, with mode ("witnessed", "told", "overheard", "deduced") and source character ID (or null).
-     - "references": when a character speaks about or acts on a fact in this chapter.
-     - "events": key narrative occurrences with optional time_marker and location when stated in the text.
+     - "references": when a character speaks about, references, or acts on a fact in this chapter.
+     - "events": key narrative occurrences. Emphasize:
+       * "time_marker": extract explicit temporal markers whenever present (e.g., "Day 3 evening", "half past seven on Wednesday", "Friday morning", "after midnight"). Do NOT omit stated timestamps.
+       * "location": exact room, building, or city (e.g., "east-wing library", "Ashford Manor morning room", "London flat", "Edinburgh").
+       * "participants": complete list of character IDs present in the scene, especially tracking arrivals and departures.
 
-Strict Rules:
+Strict Invariants & Rules:
+- Output must be strict, valid JSON without markdown formatting or commentary.
 - Every item ("fact", "knowledge_event", "reference", "event") MUST have a "quote" copied EXACTLY from the chapter excerpt, character-for-character, 5-25 words long.
 - Do NOT infer what is not on the page. If unsure, omit the item.
-- Do NOT invent facts or time markers not stated in the excerpt.
-- Cover varied genres: mystery, thriller, fantasy, romance, historical fiction.
-- Include scenarios with secrets, lies, withheld information, and characters learning things in different ways (e.g., told directly vs overhearing vs discovering physical evidence).
-- Include edge cases where no new facts or knowledge events occur (negative/sparse extraction examples).
-- Output must be strict, valid JSON without markdown wrapping or commentary.
+- Do NOT invent facts or time markers not explicitly stated in the excerpt.
+- Cover varied genres: mystery, fantasy, thriller, historical drama.
+- Explicitly include challenging edge cases addressing known continuity failure modes:
+  1. Timeline & Travel: scenes with explicit travel times, departure/arrival timestamps, and evening/morning markers.
+  2. Presence & Colocation: scenes tracking who entered, who departed, who stayed in a room, and scenes confirming a character's death.
+  3. Attribute Drift: explicit mentions of character age, eye color, or physical descriptions.
+  4. Negative Examples: excerpts where no new facts or knowledge events occur (sparse extraction).
