@@ -3,7 +3,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import {
   ReactFlow,
-  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -36,62 +35,107 @@ export function KnowledgeGraph({
 }: KnowledgeGraphProps) {
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
 
-  // Set default selection to first character if none selected
+  // Set default selection to first character if none selected or if selection no longer in graph
   useEffect(() => {
-    if (graphData?.nodes && graphData.nodes.length > 0 && !selectedCharId) {
-      setSelectedCharId(graphData.nodes[0].id);
+    if (graphData?.nodes && graphData.nodes.length > 0) {
+      const exists = graphData.nodes.some((n) => String(n.id) === selectedCharId);
+      if (!selectedCharId || !exists) {
+        setSelectedCharId(String(graphData.nodes[0].id));
+      }
     }
   }, [graphData, selectedCharId]);
 
-  // Compute node positions arranged cleanly in an elliptical layout
+  // Compute node positions arranged cleanly in an elliptical layout centered in the canvas
   const nodes: Node[] = useMemo(() => {
-    if (!graphData || !graphData.nodes) return [];
+    if (!graphData || !Array.isArray(graphData.nodes) || graphData.nodes.length === 0) {
+      return [];
+    }
 
     const count = graphData.nodes.length;
-    const radiusX = Math.max(220, count * 55);
-    const radiusY = Math.max(160, count * 40);
-    const centerX = 360;
-    const centerY = 240;
+    const radiusX = Math.max(240, count * 60);
+    const radiusY = Math.max(160, count * 45);
+    const centerX = 400;
+    const centerY = 280;
 
     return graphData.nodes.map((node, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(1, count) - Math.PI / 2;
-      const x = centerX + radiusX * Math.cos(angle) - 90;
-      const y = centerY + radiusY * Math.sin(angle) - 40;
+      let x = centerX - 100;
+      let y = centerY - 45;
+
+      if (count > 1) {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        x = centerX + radiusX * Math.cos(angle) - 100;
+        y = centerY + radiusY * Math.sin(angle) - 45;
+      }
+
+      const nodeId = String(node.id || `char-${i}`);
+      const knows = Array.isArray(node.knows) ? node.knows : [];
 
       return {
-        id: node.id,
+        id: nodeId,
         type: "characterNode",
         position: { x, y },
         data: {
-          id: node.id,
-          name: node.name,
-          aliases: node.aliases,
-          knownCount: node.knows.length,
-          isSelected: node.id === selectedCharId,
+          id: nodeId,
+          name: node.name || "Unknown",
+          aliases: Array.isArray(node.aliases) ? node.aliases : [],
+          knownCount: knows.length,
+          isSelected: nodeId === selectedCharId,
         },
       };
     });
   }, [graphData, selectedCharId]);
 
-  // Compute edges with colors by transmission mode
+  // Compute edges with colors by transmission mode and validate source/target exist
   const edges: Edge[] = useMemo(() => {
-    if (!graphData || !graphData.edges) return [];
+    if (!graphData || !Array.isArray(graphData.edges) || !Array.isArray(graphData.nodes)) {
+      return [];
+    }
 
-    return graphData.edges.map((edge, idx) => {
-      const fact = graphData.facts.find((f) => f.id === edge.fact_id);
+    const validNodeIds = new Set(graphData.nodes.map((n) => String(n.id)));
+    const nameToId = new Map(
+      graphData.nodes.map((n) => [String(n.name).toLowerCase().trim(), String(n.id)])
+    );
+
+    const safeFacts = Array.isArray(graphData.facts) ? graphData.facts : [];
+    const result: Edge[] = [];
+
+    for (let idx = 0; idx < graphData.edges.length; idx++) {
+      const edge = graphData.edges[idx];
+      let sourceId = String(edge.source || "").trim();
+      let targetId = String(edge.target || "").trim();
+
+      // Resolve by name if LLM extracted name instead of ID
+      if (!validNodeIds.has(sourceId) && nameToId.has(sourceId.toLowerCase())) {
+        sourceId = nameToId.get(sourceId.toLowerCase())!;
+      }
+      if (!validNodeIds.has(targetId) && nameToId.has(targetId.toLowerCase())) {
+        targetId = nameToId.get(targetId.toLowerCase())!;
+      }
+
+      // Only render edge if both nodes actually exist in the canvas
+      if (!validNodeIds.has(sourceId) || !validNodeIds.has(targetId)) {
+        continue;
+      }
+
+      const fact = safeFacts.find((f) => f.id === edge.fact_id);
       const isRecent = edge.chapter === currentChapter;
+      const mode = (edge.mode || "told").toLowerCase();
 
       let strokeColor = "#6366f1"; // indigo (told)
-      if (edge.mode === "witnessed") strokeColor = "#10b981"; // emerald
-      if (edge.mode === "overheard") strokeColor = "#f59e0b"; // amber
-      if (edge.mode === "deduced") strokeColor = "#a855f7"; // purple
+      if (mode === "witnessed") strokeColor = "#10b981"; // emerald
+      if (mode === "overheard") strokeColor = "#f59e0b"; // amber
+      if (mode === "deduced") strokeColor = "#a855f7"; // purple
 
-      return {
-        id: `e-${edge.source}-${edge.target}-${idx}`,
-        source: edge.source,
-        target: edge.target,
+      const factSnippet = fact?.claim
+        ? `: ${fact.claim.slice(0, 22)}${fact.claim.length > 22 ? "…" : ""}`
+        : "";
+
+      result.push({
+        id: `e-${sourceId}-${targetId}-${edge.fact_id || idx}`,
+        source: sourceId,
+        target: targetId,
         animated: isRecent,
-        label: `${edge.mode.toUpperCase()}${fact ? `: ${fact.claim.slice(0, 24)}...` : ""}`,
+        label: `${mode.toUpperCase()}${factSnippet}`,
         labelStyle: {
           fill: "#d4d4d8",
           fontSize: 10,
@@ -100,14 +144,14 @@ export function KnowledgeGraph({
         },
         labelBgStyle: {
           fill: "#18181b",
-          fillOpacity: 0.85,
+          fillOpacity: 0.9,
           rx: 4,
           ry: 4,
         },
         style: {
           stroke: strokeColor,
           strokeWidth: isRecent ? 2.5 : 1.5,
-          opacity: isRecent ? 1 : 0.6,
+          opacity: isRecent ? 1 : 0.65,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
@@ -115,19 +159,21 @@ export function KnowledgeGraph({
           width: 14,
           height: 14,
         },
-      };
-    });
+      });
+    }
+
+    return result;
   }, [graphData, currentChapter]);
 
   const selectedNode = useMemo(() => {
-    if (!graphData || !selectedCharId) return null;
-    return graphData.nodes.find((n) => n.id === selectedCharId) || null;
+    if (!graphData || !Array.isArray(graphData.nodes) || !selectedCharId) return null;
+    return graphData.nodes.find((n) => String(n.id) === selectedCharId) || null;
   }, [graphData, selectedCharId]);
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] relative overflow-hidden bg-zinc-950">
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] relative overflow-hidden bg-zinc-950 w-full">
       {/* Top Slider Toolbar */}
-      <div className="bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-6 py-3 flex items-center justify-between z-10">
+      <div className="bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-6 py-3 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center space-x-3">
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
             Timeline Scrubber:
@@ -172,7 +218,7 @@ export function KnowledgeGraph({
             onChange={(e) => onChapterChange(Number(e.target.value))}
             className="w-full accent-indigo-500 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
           />
-          <span className="text-[11px] text-zinc-500 font-mono">Ch. {totalChapters}</span>
+          <span className="text-[11px] text-zinc-500 font-mono">Ch. {Math.max(1, totalChapters)}</span>
         </div>
 
         {/* Legend */}
@@ -186,6 +232,10 @@ export function KnowledgeGraph({
             <span>Witnessed</span>
           </span>
           <span className="flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>Overheard</span>
+          </span>
+          <span className="flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-purple-500" />
             <span>Deduced</span>
           </span>
@@ -193,12 +243,12 @@ export function KnowledgeGraph({
       </div>
 
       {/* Main Canvas & Side Panel Container */}
-      <div className="flex-1 flex relative overflow-hidden">
-        {/* React Flow Graph */}
-        <div className="flex-1 w-full h-full relative" style={{ minHeight: "550px" }}>
+      <div className="flex-1 flex flex-row relative overflow-hidden min-h-0 w-full" style={{ height: "calc(100% - 56px)" }}>
+        {/* React Flow Graph Canvas */}
+        <div className="flex-1 h-full w-full relative min-h-[400px]" style={{ width: "100%", height: "100%" }}>
           {isLoading && (
-            <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-xs flex items-center justify-center z-30">
-              <div className="flex items-center space-x-2 text-indigo-400 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl text-xs font-mono">
+            <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center z-30">
+              <div className="flex items-center space-x-2 text-indigo-400 bg-zinc-900 border border-zinc-800 px-4 py-2.5 rounded-xl text-xs font-mono shadow-xl">
                 <svg className="animate-spin w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
@@ -208,21 +258,21 @@ export function KnowledgeGraph({
             </div>
           )}
 
-          <ReactFlowProvider>
+          {nodes.length > 0 ? (
             <ReactFlow
+              key={`rf-canvas-ch-${graphData?.chapter ?? currentChapter}-${nodes.length}`}
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
               onNodeClick={(_, node) => setSelectedCharId(node.id)}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
-              defaultViewport={{ x: 50, y: 50, zoom: 0.9 }}
-              minZoom={0.2}
+              fitViewOptions={{ padding: 0.25 }}
+              minZoom={0.1}
               maxZoom={2.0}
               className="bg-zinc-950"
               style={{ width: "100%", height: "100%" }}
             >
-              <Background color="#27272a" gap={24} size={1.5} />
+              <Background color="#27272a" gap={20} size={1} />
               <Controls className="bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 fill-zinc-300" />
               <MiniMap
                 nodeColor={() => "#6366f1"}
@@ -230,14 +280,16 @@ export function KnowledgeGraph({
                 className="bg-zinc-900 border border-zinc-800 rounded-xl"
               />
             </ReactFlow>
-          </ReactFlowProvider>
-
-          {/* Empty state overlay if no characters */}
-          {(!graphData || graphData.nodes.length === 0) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-zinc-400 text-sm">No characters extracted yet.</p>
-              <p className="text-zinc-600 text-xs mt-1">
-                Upload or analyze a manuscript to populate the knowledge graph.
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/90 p-6 text-center">
+              <div className="p-3 bg-zinc-900 rounded-full border border-zinc-800 text-zinc-500 mb-3">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <p className="text-zinc-300 text-sm font-semibold">No character entities for Chapter {currentChapter}</p>
+              <p className="text-zinc-500 text-xs mt-1 max-w-sm">
+                No characters were extracted or active up to this chapter. Use the timeline slider above or analyze your manuscript to populate the knowledge graph.
               </p>
             </div>
           )}
