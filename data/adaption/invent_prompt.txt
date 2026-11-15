@@ -21,7 +21,7 @@ Each example consists of:
      - "references": when a character speaks about, references, or acts on a fact in this chapter.
      - "events": key narrative occurrences. Emphasize:
        * "time_marker": extract explicit temporal markers whenever present (e.g., "Day 3 evening", "half past seven on Wednesday", "Friday morning", "after midnight"). Do NOT omit stated timestamps.
-       * "location": exact room, building, or city (e.g., "east-wing library", "Ashford Manor morning room", "London flat", "Edinburgh").
+       * "location": exact room, building, or city (e.g., "sitting room library", "Blackwood Manor morning room", "London flat", "Edinburgh").
        * "participants": complete list of character IDs present in the scene, especially tracking arrivals and departures.
 
 Strict Invariants & Rules:
