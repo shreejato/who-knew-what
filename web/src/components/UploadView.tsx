@@ -2,14 +2,25 @@
 
 import React, { useState } from "react";
 import { SAMPLE_STORY } from "@/lib/mockData";
+import { Contradiction, GraphResponse, AnalysisSource } from "@/lib/types";
 
 interface UploadViewProps {
   onAnalyze: (title: string, text: string) => Promise<void>;
   isAnalyzing: boolean;
   error: string | null;
+  contradictions: Contradiction[];
+  graphData: GraphResponse | null;
+  analysisSource: AnalysisSource;
 }
 
-export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
+export function UploadView({
+  onAnalyze,
+  isAnalyzing,
+  error,
+  contradictions,
+  graphData,
+  analysisSource,
+}: UploadViewProps) {
   const [title, setTitle] = useState("The Blackwood Manor Mystery");
   const [text, setText] = useState(SAMPLE_STORY);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -18,6 +29,56 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const chapterMatches = text.match(/chapter\s+[\w\d]+/gi) || [];
   const chapterCount = Math.max(1, chapterMatches.length);
+
+  // Computed characters and epistemic links from loaded graph data
+  const loadedCharactersCount = graphData?.nodes?.length ?? 0;
+  const loadedLinksCount = graphData?.edges?.length ?? 0;
+
+  // Real client-side verification of evidence quotes against current text
+  const totalEvidenceQuotes = contradictions.reduce(
+    (acc, c) => acc + (c.evidence ? c.evidence.length : 0),
+    0
+  );
+  const normalizedManuscriptText = text.toLowerCase().replace(/\s+/g, " ");
+  const verifiedQuotesCount = contradictions.reduce((acc, c) => {
+    if (!c.evidence) return acc;
+    const verifiedInItem = c.evidence.filter((ev) => {
+      if (!ev.quote || !ev.quote.trim()) return false;
+      const cleanQuote = ev.quote
+        .toLowerCase()
+        .replace(/^["'\s]+|["'\s]+$/g, "")
+        .replace(/\s+/g, " ");
+      return normalizedManuscriptText.includes(cleanQuote);
+    }).length;
+    return acc + verifiedInItem;
+  }, 0);
+
+  // Status badge details
+  const getSourceBadge = () => {
+    switch (analysisSource) {
+      case "live":
+        return {
+          label: "Live analysis",
+          classes: "bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30",
+          dot: "bg-[#10B981]",
+        };
+      case "cached":
+        return {
+          label: "Cached analysis",
+          classes: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+          dot: "bg-cyan-400",
+        };
+      case "mock":
+      default:
+        return {
+          label: "Built-in sample (mock)",
+          classes: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+          dot: "bg-amber-400",
+        };
+    }
+  };
+
+  const sourceBadge = getSourceBadge();
 
   const handleFileUpload = (file: File) => {
     if (!file) return;
@@ -95,13 +156,13 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#6C47FF]/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-3">
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] font-semibold border border-[#10B981]/30 flex items-center space-x-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
-                <span>Active Project</span>
+            <div className="flex flex-wrap items-center gap-2.5 mb-3">
+              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border flex items-center space-x-1.5 ${sourceBadge.classes}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${sourceBadge.dot}`} />
+                <span>{sourceBadge.label}</span>
               </span>
               <span className="text-xs text-[#A9A9C9]">
-                {chapterCount} Chapters • Planted Inconsistency Benchmark
+                {chapterCount} {chapterCount === 1 ? "Chapter" : "Chapters"} • Planted Inconsistency Benchmark
               </span>
             </div>
 
@@ -119,15 +180,19 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
                 <span className="text-[#6F6F94] block text-[10px] uppercase font-mono">Word Count</span>
                 <span className="font-bold text-white text-sm">{wordCount.toLocaleString()}</span>
               </div>
+              {loadedCharactersCount > 0 && (
+                <>
+                  <div className="h-8 w-px bg-white/[0.06]" />
+                  <div>
+                    <span className="text-[#6F6F94] block text-[10px] uppercase font-mono">Characters</span>
+                    <span className="font-bold text-white text-sm">{loadedCharactersCount} Tracked</span>
+                  </div>
+                </>
+              )}
               <div className="h-8 w-px bg-white/[0.06]" />
               <div>
-                <span className="text-[#6F6F94] block text-[10px] uppercase font-mono">Characters</span>
-                <span className="font-bold text-white text-sm">3 Tracked</span>
-              </div>
-              <div className="h-8 w-px bg-white/[0.06]" />
-              <div>
-                <span className="text-[#6F6F94] block text-[10px] uppercase font-mono">Benchmark</span>
-                <span className="font-bold text-indigo-400 text-sm">F1 0.615</span>
+                <span className="text-[#6F6F94] block text-[10px] uppercase font-mono">Issues Found</span>
+                <span className="font-bold text-rose-300 text-sm">{contradictions.length}</span>
               </div>
             </div>
 
@@ -144,66 +209,53 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
           </div>
         </div>
 
-        {/* Right 1 Col: Story Health Card with Circular Progress Ring */}
+        {/* Right 1 Col: Evidence Verification & Benchmark Baseline Card */}
         <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-6 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-white">Story Health</h4>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/[0.06] text-[#A9A9C9] font-mono">
-              Live Eval
+            <h4 className="text-sm font-bold text-white">Evidence Verification</h4>
+            <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${sourceBadge.classes}`}>
+              {sourceBadge.label}
             </span>
           </div>
 
-          {/* Circular progress ring */}
-          <div className="my-4 flex items-center justify-center">
-            <div className="relative w-32 h-32 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="#1E1E4E"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="#10B981"
-                  strokeWidth="8"
-                  strokeDasharray="251.2"
-                  strokeDashoffset="20"
-                  strokeLinecap="round"
-                  fill="transparent"
-                  className="transition-all duration-1000 ease-out"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-2xl font-extrabold text-white tracking-tight">92%</span>
-                <span className="text-[10px] text-[#A9A9C9]">Integrity</span>
-              </div>
+          {/* Computed quote verification metric */}
+          <div className="my-4 p-4 rounded-xl bg-[#0E0E24] border border-white/[0.06]">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium text-[#A9A9C9]">Verified Quote Citations</span>
+              <span className="text-xl font-extrabold text-white">
+                {verifiedQuotesCount} <span className="text-xs font-normal text-[#6F6F94]">/ {totalEvidenceQuotes}</span>
+              </span>
             </div>
+            <p className="text-[11px] text-[#6F6F94] mt-1">
+              Quotes found in the manuscript text (case- and whitespace-insensitive).
+            </p>
           </div>
 
-          {/* Checklist underneath */}
-          <div className="space-y-2 pt-2 border-t border-white/[0.06] text-xs">
-            <div className="flex items-center space-x-2 text-[#A9A9C9]">
-              <svg className="w-4 h-4 text-[#10B981] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Verbatim quote exactness 100%</span>
+          {/* Static held-out benchmark baseline from eval/results.md */}
+          <div className="space-y-2 pt-3 border-t border-white/[0.06] text-xs">
+            <div className="text-[10px] font-mono uppercase text-[#6F6F94] tracking-wider mb-1">
+              Baseline on held-out story (eval/results.md)
             </div>
-            <div className="flex items-center space-x-2 text-[#A9A9C9]">
-              <svg className="w-4 h-4 text-[#10B981] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Premature knowledge F1 1.0</span>
+            <div className="flex items-center justify-between text-[#A9A9C9]">
+              <span className="flex items-center space-x-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                <span>Detection F1</span>
+              </span>
+              <span className="font-mono font-bold text-white">0.615</span>
             </div>
-            <div className="flex items-center space-x-2 text-amber-400">
-              <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span>1 continuity warning detected</span>
+            <div className="flex items-center justify-between text-[#A9A9C9]">
+              <span className="flex items-center space-x-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                <span>Quote Exactness</span>
+              </span>
+              <span className="font-mono font-bold text-white">100.0%</span>
+            </div>
+            <div className="flex items-center justify-between text-[#A9A9C9]">
+              <span className="flex items-center space-x-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                <span>Premature Knowledge F1</span>
+              </span>
+              <span className="font-mono font-bold text-white">1.000</span>
             </div>
           </div>
         </div>
@@ -223,29 +275,33 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-4 flex items-center space-x-3.5 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+        {loadedCharactersCount > 0 && (
+          <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-4 flex items-center space-x-3.5 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-lg font-bold text-white block leading-none">{loadedCharactersCount} Characters</span>
+              <span className="text-[11px] text-[#A9A9C9] mt-1 block">Active Network</span>
+            </div>
           </div>
-          <div>
-            <span className="text-lg font-bold text-white block leading-none">3 Characters</span>
-            <span className="text-[11px] text-[#A9A9C9] mt-1 block">Active Network</span>
-          </div>
-        </div>
+        )}
 
-        <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-4 flex items-center space-x-3.5 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
+        {loadedLinksCount > 0 && (
+          <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-4 flex items-center space-x-3.5 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-lg font-bold text-white block leading-none">{loadedLinksCount} Epistemic Links</span>
+              <span className="text-[11px] text-[#A9A9C9] mt-1 block">Belief Transmissions</span>
+            </div>
           </div>
-          <div>
-            <span className="text-lg font-bold text-white block leading-none">12 Epistemic Links</span>
-            <span className="text-[11px] text-[#A9A9C9] mt-1 block">Belief Transmissions</span>
-          </div>
-        </div>
+        )}
 
         <div className="rounded-2xl bg-[#151538] border border-white/[0.08] p-4 flex items-center space-x-3.5 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
@@ -254,8 +310,12 @@ export function UploadView({ onAnalyze, isAnalyzing, error }: UploadViewProps) {
             </svg>
           </div>
           <div>
-            <span className="text-lg font-bold text-white block leading-none">1 Issue Found</span>
-            <span className="text-[11px] text-[#A9A9C9] mt-1 block">Chapter 4 Warning</span>
+            <span className="text-lg font-bold text-white block leading-none">
+              {contradictions.length} {contradictions.length === 1 ? "Issue" : "Issues"} Found
+            </span>
+            <span className="text-[11px] text-[#A9A9C9] mt-1 block">
+              {contradictions.length > 0 ? "Continuity Warnings" : "Clean Plot"}
+            </span>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AnalysisSource } from "@/lib/types";
 
 interface HeaderProps {
   activeTab: "upload" | "graph" | "contradictions";
@@ -10,6 +11,8 @@ interface HeaderProps {
   chapterCount: number;
   onOpenModelModal: () => void;
   extractorType?: "gemini" | "adapted";
+  backendExtractor?: string;
+  analysisSource: AnalysisSource;
   onReset?: () => void;
   isAnalyzing?: boolean;
 }
@@ -22,9 +25,45 @@ export function Header({
   chapterCount,
   onOpenModelModal,
   extractorType = "gemini",
+  backendExtractor,
+  analysisSource,
   onReset,
   isAnalyzing = false,
 }: HeaderProps) {
+  // Label model strictly truthfully: Never "Gemini 2.0"
+  const modelLabel =
+    extractorType === "adapted"
+      ? "Adaption LoRA"
+      : backendExtractor && backendExtractor.toLowerCase().includes("gemini")
+      ? `${backendExtractor.charAt(0).toUpperCase() + backendExtractor.slice(1)} baseline`
+      : "Gemini baseline";
+
+  // Data source badge label & styling
+  const getSourceBadge = () => {
+    switch (analysisSource) {
+      case "live":
+        return {
+          label: "Live analysis",
+          classes: "bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30",
+          dot: "bg-[#10B981]",
+        };
+      case "cached":
+        return {
+          label: "Cached analysis",
+          classes: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+          dot: "bg-cyan-400",
+        };
+      case "mock":
+      default:
+        return {
+          label: "Built-in sample (mock)",
+          classes: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+          dot: "bg-amber-400",
+        };
+    }
+  };
+
+  const sourceBadge = getSourceBadge();
   return (
     <header className="border-b border-white/[0.08] bg-[#0E0E24]/90 backdrop-blur-xl sticky top-0 z-30 px-4 sm:px-8 py-3.5">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -116,14 +155,21 @@ export function Header({
 
         {/* Right side: Status, Extractor & Avatar */}
         <div className="flex items-center space-x-3 shrink-0">
+          {/* Honest Data Source Badge */}
+          <div
+            className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border ${sourceBadge.classes}`}
+            title="Truthful pipeline status of data currently presented"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${sourceBadge.dot}`} />
+            <span>{sourceBadge.label}</span>
+          </div>
+
           {/* Analysis Status */}
           <div className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#151538] border border-white/[0.08] text-xs">
             <div className={`w-2 h-2 rounded-full ${isAnalyzing ? "bg-amber-400 animate-ping" : "bg-[#10B981]"}`} />
             <span className="text-[#A9A9C9]">
               {isAnalyzing ? "Analyzing Plot..." : "Story Analysed"}
             </span>
-            <span className="text-[#6F6F94] text-[10px]">•</span>
-            <span className="text-[#6F6F94] text-[10px]">Just now</span>
           </div>
 
           {/* Model Extractor Trigger */}
@@ -134,7 +180,7 @@ export function Header({
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#6C47FF]" />
             <span className="font-medium text-white">
-              {extractorType === "adapted" ? "Adaption LoRA" : "Gemini 2.0"}
+              {modelLabel}
             </span>
           </button>
 

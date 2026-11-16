@@ -11,8 +11,9 @@ import {
   analyze,
   getGraph,
   getContradictions,
+  getBackendHealth,
 } from "@/lib/api";
-import { GraphResponse, Contradiction, Manuscript } from "@/lib/types";
+import { GraphResponse, Contradiction, Manuscript, AnalysisSource } from "@/lib/types";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"upload" | "graph" | "contradictions">("upload");
@@ -29,6 +30,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [extractorType, setExtractorType] = useState<"gemini" | "adapted">("gemini");
+  const [backendExtractor, setBackendExtractor] = useState<string>("gemini");
+  const [analysisSource, setAnalysisSource] = useState<AnalysisSource>("mock");
 
   // Load initial graph data for the demo manuscript
   const loadGraphForChapter = useCallback(
@@ -46,18 +49,23 @@ export default function Home() {
     []
   );
 
-  // Initialize with Chapter 1 data and mock contradictions on startup
+  // Initialize with backend health and Chapter 1 demo data
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const [data, items] = await Promise.all([
+        const [health, data, items] = await Promise.all([
+          getBackendHealth(),
           getGraph("m-demo-1", 1),
           getContradictions("m-demo-1"),
         ]);
         if (active) {
+          if (health?.extractor) setBackendExtractor(health.extractor);
           if (data) setGraphData(data);
-          if (items && items.length > 0) setContradictions(items);
+          if (items && items.data && items.data.length > 0) {
+            setContradictions(items.data);
+            setAnalysisSource(items.isRealApi ? "cached" : "mock");
+          }
         }
       } catch (err) {
         console.error("Failed to initialize startup data", err);
@@ -84,7 +92,7 @@ export default function Home() {
       setManuscript(m);
 
       // Step 2: Trigger analysis pipeline
-      await analyze(m.id);
+      const analyzeRes = await analyze(m.id);
 
       // Step 3: Fetch initial chapter graph and contradiction list
       setCurrentChapter(1);
@@ -94,7 +102,15 @@ export default function Home() {
       ]);
 
       setGraphData(g);
-      setContradictions(c);
+      setContradictions(c.data);
+      // Determine truthful source status
+      if (analyzeRes.isRealApi && c.isRealApi) {
+        setAnalysisSource("live");
+      } else if (c.isRealApi) {
+        setAnalysisSource("cached");
+      } else {
+        setAnalysisSource("mock");
+      }
 
       // Transition smoothly to the visual knowledge graph
       setActiveTab("graph");
@@ -227,6 +243,8 @@ export default function Home() {
           chapterCount={manuscript.chapters}
           onOpenModelModal={() => setIsModelModalOpen(true)}
           extractorType={extractorType}
+          backendExtractor={backendExtractor}
+          analysisSource={analysisSource}
           onReset={() => setActiveTab("upload")}
           isAnalyzing={isAnalyzing}
         />
@@ -238,6 +256,9 @@ export default function Home() {
               onAnalyze={handleAnalyze}
               isAnalyzing={isAnalyzing}
               error={error}
+              contradictions={contradictions}
+              graphData={graphData}
+              analysisSource={analysisSource}
             />
           )}
 

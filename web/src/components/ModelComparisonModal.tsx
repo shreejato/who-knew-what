@@ -11,6 +11,15 @@ interface ModelComparisonModalProps {
   onToggleExtractor: (ext: "gemini" | "adapted") => void;
 }
 
+interface AdaptionPilotData {
+  rows: number;
+  gradeBefore: string;
+  gradeAfter: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  improvementPercent: number;
+}
+
 export function ModelComparisonModal({
   isOpen,
   onClose,
@@ -19,6 +28,7 @@ export function ModelComparisonModal({
 }: ModelComparisonModalProps) {
   const [metrics, setMetrics] = useState<EvalMetric[]>(MOCK_EVAL_METRICS);
   const [sourceNote, setSourceNote] = useState<string>("eval/results.md");
+  const [adaptionPilot, setAdaptionPilot] = useState<AdaptionPilotData | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -28,6 +38,7 @@ export function ModelComparisonModal({
           if (Array.isArray(data.metrics) && data.metrics.length > 0) {
             setMetrics(data.metrics);
             if (data.source) setSourceNote(data.source);
+            if (data.adaptionPilot) setAdaptionPilot(data.adaptionPilot);
           }
         })
         .catch(() => {
@@ -136,13 +147,48 @@ export function ModelComparisonModal({
           </table>
         </div>
 
+        {/* Adaption Adaptive Data Pilot Facts Card */}
+        {adaptionPilot && (
+          <div className="p-4 bg-[#0E0E24] border border-indigo-500/30 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-white flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <span>Adaption Adaptive Data Pilot (data/adaption/adaption_state.json)</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#6C47FF]/20 text-indigo-300">
+                {adaptionPilot.rows}-row seed run
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 pt-1 text-center">
+              <div className="p-2 rounded-xl bg-[#151538] border border-white/[0.06]">
+                <span className="text-[10px] text-[#A9A9C9] block font-mono uppercase">Quality Grade</span>
+                <span className="text-sm font-bold text-white font-mono mt-0.5 block">
+                  {adaptionPilot.gradeBefore} → {adaptionPilot.gradeAfter}
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-[#151538] border border-white/[0.06]">
+                <span className="text-[10px] text-[#A9A9C9] block font-mono uppercase">Quality Score</span>
+                <span className="text-sm font-bold text-white font-mono mt-0.5 block">
+                  {adaptionPilot.scoreBefore.toFixed(1)} → {adaptionPilot.scoreAfter.toFixed(1)}
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-[#151538] border border-white/[0.06]">
+                <span className="text-[10px] text-[#A9A9C9] block font-mono uppercase">Relative Gain</span>
+                <span className="text-sm font-bold text-[#10B981] font-mono mt-0.5 block">
+                  +{adaptionPilot.improvementPercent}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Source verification callout */}
         <div className="text-[11px] text-[#A9A9C9] bg-[#0E0E24] border border-white/[0.08] p-4 rounded-xl leading-relaxed space-y-1">
           <p>
             <strong className="text-white">Verified Eval Benchmark:</strong> All Gemini baseline metrics reflect real runs recorded in <code className="text-indigo-400 font-mono">{sourceNote}</code> via <code className="text-[#E2E2F0] font-mono">eval/run_eval.py</code> against <code className="text-[#E2E2F0] font-mono">data/answer_key.json</code>.
           </p>
           <p className="text-[#6F6F94] text-[10px]">
-            Adaption metrics reflect our fine-tuning training runs on public-domain Conan Doyle / Poe chapters. If a fine-tune run is in progress or pending, it is marked honestly as pending with zero invented data.
+            Adaption metrics reflect verified Adaptive Data audit results. Any full LoRA model fine-tune metric is marked strictly as pending with zero invented figures.
           </p>
         </div>
 

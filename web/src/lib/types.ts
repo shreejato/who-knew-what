@@ -94,7 +94,10 @@ export interface Manuscript {
   id: string;
   title: string;
   chapters: number;
+  text?: string;
 }
+
+export type AnalysisSource = "live" | "cached" | "mock";
 
 export interface EvalMetric {
   metric: string;

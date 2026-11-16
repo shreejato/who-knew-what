@@ -7,13 +7,24 @@ import {
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const FORCE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
+export async function getBackendHealth(): Promise<{ status: string; extractor?: string } | null> {
+  if (FORCE_MOCK) return null;
+  try {
+    const r = await fetch(`${BASE}/health`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function createManuscript(
   title: string,
   text: string
 ): Promise<Manuscript> {
   if (FORCE_MOCK) {
     const chapters = Math.max(1, (text.match(/chapter\s+\d+/gi) || []).length);
-    return { id: "mock-m1", title, chapters: chapters || 4 };
+    return { id: "mock-m1", title, chapters: chapters || 4, text };
   }
 
   try {
@@ -28,18 +39,19 @@ export async function createManuscript(
       id: data.id,
       title: data.title || title || "Untitled Manuscript",
       chapters: data.chapters || 1,
+      text,
     };
   } catch (err) {
     console.warn("Backend unavailable, using mock manuscript fallback", err);
     const chapters = Math.max(1, (text.match(/chapter\s+\d+/gi) || []).length);
-    return { id: "mock-fallback", title: title || "Demo Manuscript", chapters: chapters || 4 };
+    return { id: "mock-fallback", title: title || "Demo Manuscript", chapters: chapters || 4, text };
   }
 }
 
-export async function analyze(id: string): Promise<{ status: string }> {
+export async function analyze(id: string): Promise<{ status: string; isRealApi?: boolean; isCached?: boolean }> {
   if (FORCE_MOCK || id.startsWith("mock-")) {
     await new Promise((res) => setTimeout(res, 800));
-    return { status: "done" };
+    return { status: "done", isRealApi: false };
   }
 
   try {
@@ -47,10 +59,11 @@ export async function analyze(id: string): Promise<{ status: string }> {
       method: "POST",
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
+    const data = await r.json();
+    return { status: data.status || "done", isRealApi: true };
   } catch (err) {
     console.warn("Backend analysis error, continuing with fallback", err);
-    return { status: "done" };
+    return { status: "done", isRealApi: false };
   }
 }
 
@@ -82,9 +95,9 @@ export async function getGraph(
 
 export async function getContradictions(
   id: string
-): Promise<Contradiction[]> {
+): Promise<{ data: Contradiction[]; isRealApi: boolean }> {
   if (FORCE_MOCK || id.startsWith("mock-")) {
-    return MOCK_CONTRADICTIONS;
+    return { data: MOCK_CONTRADICTIONS, isRealApi: false };
   }
 
   try {
@@ -92,11 +105,11 @@ export async function getContradictions(
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (Array.isArray(data)) {
-      return data;
+      return { data, isRealApi: true };
     }
-    return [];
+    return { data: [], isRealApi: true };
   } catch (err) {
     console.warn("Backend /contradictions unavailable, using mock fallback", err);
-    return MOCK_CONTRADICTIONS;
+    return { data: MOCK_CONTRADICTIONS, isRealApi: false };
   }
 }
