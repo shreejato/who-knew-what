@@ -97,14 +97,11 @@ export function ModelComparisonModal({
               Gemini Baseline
             </button>
             <button
-              onClick={() => onToggleExtractor("adapted")}
-              className={`px-3.5 py-1.5 rounded-lg font-semibold transition-all ${
-                currentExtractor === "adapted"
-                  ? "btn-primary text-white shadow"
-                  : "text-[#A9A9C9] hover:text-white"
-              }`}
+              disabled
+              title="Full adapted model fine-tune is not yet evaluated on held-out story"
+              className="px-3.5 py-1.5 rounded-lg font-semibold text-[#6F6F94] bg-white/[0.03] cursor-not-allowed border border-dashed border-white/[0.08] opacity-70"
             >
-              Adaption Fine-Tuned
+              Adapted model: pending, not yet evaluated
             </button>
           </div>
         </div>

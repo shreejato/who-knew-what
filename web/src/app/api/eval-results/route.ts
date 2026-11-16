@@ -137,20 +137,35 @@ export async function GET() {
       }
     }
 
+    // Build pilot facts without fallback defaults: if field is missing, keep null / undefined
+    let pilotData = null;
+    if (adaptionState) {
+      const downloadedRows = (adaptionState as { downloaded_rows?: number }).downloaded_rows;
+      const evalObj = (adaptionState as { evaluation?: Record<string, unknown> }).evaluation;
+      if (
+        downloadedRows !== undefined &&
+        evalObj?.grade_before !== undefined &&
+        evalObj?.grade_after !== undefined &&
+        evalObj?.score_before !== undefined &&
+        evalObj?.score_after !== undefined &&
+        evalObj?.improvement_percent !== undefined
+      ) {
+        pilotData = {
+          rows: downloadedRows,
+          gradeBefore: String(evalObj.grade_before),
+          gradeAfter: String(evalObj.grade_after),
+          scoreBefore: Number(evalObj.score_before),
+          scoreAfter: Number(evalObj.score_after),
+          improvementPercent: Number(evalObj.improvement_percent),
+        };
+      }
+    }
+
     return NextResponse.json({
       metrics: defaultMetrics,
       source: "eval/results.md",
       groundTruth: "8 planted errors in test_story.txt (held-out)",
-      adaptionPilot: adaptionState
-        ? {
-            rows: (adaptionState as { downloaded_rows?: number }).downloaded_rows || 3,
-            gradeBefore: (adaptionState as { evaluation?: { grade_before?: string } })?.evaluation?.grade_before || "A",
-            gradeAfter: (adaptionState as { evaluation?: { grade_after?: string } })?.evaluation?.grade_after || "A",
-            scoreBefore: (adaptionState as { evaluation?: { score_before?: number } })?.evaluation?.score_before || 9.0,
-            scoreAfter: (adaptionState as { evaluation?: { score_after?: number } })?.evaluation?.score_after || 9.5,
-            improvementPercent: (adaptionState as { evaluation?: { improvement_percent?: number } })?.evaluation?.improvement_percent || 5.6,
-          }
-        : null,
+      adaptionPilot: pilotData,
     });
   } catch {
     return NextResponse.json({

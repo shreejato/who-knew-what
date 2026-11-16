@@ -30,9 +30,9 @@ export function Header({
   onReset,
   isAnalyzing = false,
 }: HeaderProps) {
-  // Label model strictly truthfully: Never "Gemini 2.0"
+  // Label model strictly truthfully based on backend /health report, never claiming an adapted model unless /health reports it
   const modelLabel =
-    extractorType === "adapted"
+    backendExtractor && backendExtractor.toLowerCase() === "adapted"
       ? "Adaption LoRA"
       : backendExtractor && backendExtractor.toLowerCase().includes("gemini")
       ? `${backendExtractor.charAt(0).toUpperCase() + backendExtractor.slice(1)} baseline`
