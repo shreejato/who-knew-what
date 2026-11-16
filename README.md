@@ -187,7 +187,7 @@ npm run build -- --webpack
 
 | Member | Name | Handle | Role | Responsibilities |
 |---|---|---|---|---|
-| Member 1 | TODO: add name | @saptadeepa823 | AI & Backend Lead | Extraction pipelines, causal rule engine, verifier & FastAPI services |
-| Member 2 | TODO: add name | @prantikmondal433-hub | Frontend Lead | Next.js architecture, React Flow knowledge graph, interactive scrubber |
-| Member 3 | TODO: add name | @shreejato | Data & Evaluation Lead | Planted-error test suite, Adaption workflow, benchmark evaluation |
-| Member 4 | TODO: add name | @amalinaguin-2006 | Team Lead, UI Designer and Problem Solver | Architecture direction, design system tokens, end-to-end integration & verification |
+| Member 1 | Saptadeepa Dutta | @saptadeepa823 | AI & Backend Lead | Extraction pipelines, causal rule engine, verifier & FastAPI services |
+| Member 2 | Prantik Mondal | @prantikmondal433-hub | Frontend Lead | Next.js architecture, React Flow knowledge graph, interactive scrubber |
+| Member 3 | Shreejato Ghosh | @shreejato | Data & Evaluation Lead | Planted-error test suite, benchmark evaluation |
+| Member 4 | Amalina Guin | @amalinaguin-2006 | UI Designer, Maintainer and Release Manager | Architecture direction, design system tokens, Adaption workflow, end-to-end integration & verification |
